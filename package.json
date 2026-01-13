@@ -63,7 +63,8 @@
                 {
                     "type": "webview",
                     "id": "byteAI.chatView",
-                    "name": "Chat"
+                    "name": "Chat",
+                    "icon": "images/logo.png"
                 }
             ]
         },
