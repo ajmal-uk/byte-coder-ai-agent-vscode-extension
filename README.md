@@ -28,15 +28,26 @@
 
 ---
 
-## 👨‍💻 Support & Contribution
+## 🏢 About UTHAKKAN
 
-**Created by**: [Ajmal U K (ajmal-uk)](https://github.com/ajmal-uk)  
-**Publisher**: `uthakkan`
+**UTHAKKAN** is a modern, independent technology studio founded in 2025 by **Ajmal U K**. We blend creativity, automation, and technology to build tools that matter.
 
-Found a bug? Want a feature?
-[**Contribute on GitHub**](https://github.com/ajmal-uk/byte-coder-ai-agent)
+> *"Building the Future of Digital Experiences"* — [uthakkan.pythonanywhere.com](https://uthakkan.pythonanywhere.com)
+
+### 🌟 More from UTHAKKAN
+- **[ToolPix](https://toolpix.pythonanywhere.com)**: A comprehensive suite of digital tools and utilities.
+- **[Byte AI](https://byteai.pythonanywhere.com)**: Advanced AI-powered web applications.
+- **[Zymail](https://zymail.pythonanywhere.com)**: Innovation in communication solutions.
+- **[Zyrace](https://zyrace.pythonanywhere.com)**: Next-gen gaming platform.
+
+### 👨‍💻 Founder
+**Ajmal U K** (Full Stack Developer & MCA Scholar)
+- **GitHub**: [ajmal-uk](https://github.com/ajmal-uk)
+- **LinkedIn**: [uthakkan](https://www.linkedin.com/company/uthakkan/)
+- **Contact**: [contact.uthakkan@gmail.com](mailto:contact.uthakkan@gmail.com)
 
 ---
+
 <div align="center">
-  <i>Make coding magic happen.</i> 🔮
+  <sub>© 2025 UTHAKKAN. Made with ❤️ in India.</sub>
 </div>
