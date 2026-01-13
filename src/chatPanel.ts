@@ -143,6 +143,9 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {
+        // Resolve Logo URI
+        const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'images', 'logo.png'));
+
         return `<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -175,13 +178,18 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     border-bottom: 1px solid var(--border-color);
                     display: flex;
                     align-items: center;
-                    justify-content: space-between;
+                    gap: 12px;
                     background: var(--bg-color);
                     z-index: 10;
                 }
+                .logo {
+                    width: 28px;
+                    height: 28px;
+                    object-fit: contain;
+                }
                 .header h3 {
                     margin: 0;
-                    font-size: 14px;
+                    font-size: 15px;
                     font-weight: 600;
                     text-transform: uppercase;
                     letter-spacing: 0.5px;
@@ -192,6 +200,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     color: var(--vscode-badge-foreground);
                     padding: 2px 6px;
                     border-radius: 4px;
+                    margin-left: auto;
                 }
                 .chat-container {
                     flex: 1;
@@ -300,12 +309,13 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         </head>
         <body>
             <div class="header">
-                <h3>Byte Coder v2.1</h3>
+                 <img src="${logoUri}" class="logo" alt="Byte AI" />
+                <h3>Byte Coder v2.2</h3>
                 <span class="status-badge">ONLINE</span>
             </div>
             <div class="chat-container" id="chat">
                 <div class="message assistant">
-                    <strong>👋 Byte Coder v2.1 Online.</strong><br><br>
+                    <strong>👋 Byte Coder v2.2 Online.</strong><br><br>
                     <strong>Interactive Mode:</strong><br>
                     • Mention files: <code>@filename</code><br>
                     • Agents: <code>/plan</code>, <code>/fix</code><br>

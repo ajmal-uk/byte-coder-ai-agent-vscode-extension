@@ -2,13 +2,13 @@
     "name": "byte-coder-ai-agent",
     "displayName": "Byte Coder Ai Agent",
     "description": "The Elite AI Coding Assistant for VS Code. Master coding, fix bugs instantly, and execute commands safely. Perfect for developers and students.",
-    "icon": "images/icon.png",
+    "icon": "images/logo.png",
     "publisher": "uthakkan",
     "repository": {
         "type": "git",
         "url": "https://github.com/ajmal-uk/byte-coder-ai-agent"
     },
-    "version": "2.1.0",
+    "version": "2.2.0",
     "engines": {
         "vscode": "^1.85.0"
     },
