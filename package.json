@@ -1,41 +1,44 @@
 {
     "name": "byte-coder-ai-agent",
     "displayName": "Byte Coder Ai Agent",
-    "description": "The Elite AI Coding Assistant for VS Code. Master coding, fix bugs instantly, and execute commands safely. Perfect for developers and students.",
+    "description": "Your All-in-One AI Coding Companion. Smart Chat, Auto-Debugging, Code Explanation, and Multi-Agent Planning. The free alternative to Copilot.",
     "icon": "images/logo.png",
     "publisher": "uthakkan",
     "repository": {
         "type": "git",
         "url": "https://github.com/ajmal-uk/byte-coder-ai-agent"
     },
-    "version": "2.2.0",
+    "version": "2.4.0",
     "engines": {
         "vscode": "^1.85.0"
     },
     "categories": [
         "AI",
         "Programming Languages",
-        "Education",
         "Snippets",
-        "Other"
+        "Machine Learning",
+        "Education"
     ],
     "keywords": [
         "ai",
         "copilot",
         "chatgpt",
-        "coding assistant",
-        "chatbot",
+        "gpt-4",
+        "pair programmer",
+        "code assistant",
         "debug",
-        "fix",
-        "explain",
-        "students",
-        "learn",
+        "refactor",
+        "intellisense",
+        "autocomplete",
         "python",
         "javascript",
         "typescript",
-        "terminal",
-        "bash",
-        "efficiency"
+        "java",
+        "c++",
+        "planner",
+        "agent",
+        "free ai",
+        "coding bot"
     ],
     "activationEvents": [],
     "main": "./out/extension.js",
