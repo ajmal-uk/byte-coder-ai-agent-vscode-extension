@@ -3,7 +3,7 @@
     "displayName": "Byte Coder Ai Agent",
     "description": "Advanced coding assistant with command line support and strict security policies.",
     "icon": "images/icon.png",
-    "publisher": "ajmal-uk",
+    "publisher": "uthakkan",
     "repository": {
         "type": "git",
         "url": "https://github.com/ajmal-uk/byte-coder-ai-agent"

@@ -67,4 +67,4 @@ The agent can execute shell commands to help you manage your project (e.g., `ls`
 Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## 👨‍💻 Author
-Created by **Ajmal U K** (ajmal-uk).
+Created by **Ajmal U K** (uthakkan).
