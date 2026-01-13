@@ -1,70 +1,83 @@
-# Byte Coder Ai Agent
+# Byte Coder Ai Agent 🚀
 
-![Version](https://img.shields.io/badge/version-0.0.2-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+<div align="center">
+  <img src="images/icon.png" width="128" height="128" alt="Byte Coder AI Logo">
+  <h1>Byte Coder Ai Agent</h1>
+  <p>
+    <strong>The Elite AI Coding Architect for VS Code.</strong><br>
+    Code Smarter. Fix Faster. Build Better.
+  </p>
+  
+  [![Version](https://img.shields.io/badge/version-0.0.7-blue.svg)](https://marketplace.visualstudio.com/items?itemName=uthakkan.byte-coder-ai-agent)
+  [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+  [![VS Code](https://img.shields.io/badge/VS%20Code-Extension-007ACC.svg)](https://code.visualstudio.com/)
+</div>
 
-**Byte Coder Ai Agent** is an elite, context-aware coding assistant for VS Code. It is designed to act as a **Senior Software Architect**, helping you write production-grade code, fix bugs, and generate documentation with ease.
+---
 
-## 🚀 Features
+## ⚡ What is Byte Coder AI?
 
-### 1. 🧠 Elite Context Awareness
-Byte Coder Ai Agent doesn't just chat; it **sees** what you are working on.
-- **Active File Analysis**: It reads your current file to understand the context.
-- **Smart Diagnostics**: It automatically detects **compiler errors** (red squigglies) and suggests fixes without you having to copy-paste the error message.
-- **Selection Awareness**: Highlight any code to focus the AI's attention on just that block.
+**Byte Coder Ai Agent** is not just another chatbot. It is a **context-aware Senior Software Architect** living inside your editor. 
 
-### 2. ⚡ Slash Commands
-Speed up your workflow with dedicated commands:
-- **/explain**: Get a detailed breakdown of how the selected code works.
-- **/fix**: Analyze the selected code for bugs (and compile errors) and get a corrected version.
-- **/doc**: Generate professional JSDoc/Docstrings for functions and classes.
+Whether you are a **Student** learning to code or a **Pro** building complex systems, Byte Coder adapts to you. It reads your files, understands your selection, and even sees your compilation errors automatically.
 
-### 3. 🛠️ Secure Command Line Access
-The agent can execute shell commands to help you manage your project (e.g., `ls`, `npm install`, `git status`).
-- **Safety First**: It will *always* ask for your explicit permission via a dialog box before running any command.
-- **Transparent**: You see exactly what command will be executed.
+## ✨ Key Features
 
-### 4. 🎨 Premium Chat Interface
-- Integrated directly into the VS Code Sidebar.
-- Clean, dark-mode optimized UI with syntax highlighting.
-- Native VS Code look and feel.
+### 🧠 1. Deep Context Awareness
+Stop copy-pasting code into ChatGPT. Byte Coder **sees what you see**.
+- **Active File Analysis**: Instantly provides answers based on your current file.
+- **Smart Selection**: Highlight any code block, ask a question, and get a precise answer.
+- **Error Hunter**: See a red squiggly line? Byte Coder sees it too and can fix it instantly.
 
-## 📦 Installation
+### 🛠️ 2. Powerful Slash Commands
+Streamline your workflow with dedicated commands:
+- **/fix**: Detects bugs and errors in your selection and rewrites it perfectly.
+- **/explain**: Breaks down complex logic into simple, understandable English.
+- **/doc**: Generates professional JSDoc / Docstrings for your functions.
 
-### From VSIX
-1.  Download the latest `.vsix` release.
-2.  Open VS Code.
-3.  Go to the **Extensions** view (`Cmd+Shift+X`).
-4.  Click the `...` menu and select **Install from VSIX...**.
-5.  Select `byte-coder-ai-agent-0.0.2.vsix`.
+### 💻 3. Secure Terminal Access
+Need to run a command? Byte Coder can handle the terminal for you.
+- **Efficiency**: Chains multiple commands (e.g., `git add . && git commit`).
+- **Safety First**: **NEVER** runs a command without your explicit click. You are always in control.
 
-### From Source (Development)
-1.  Clone the repository:
-    ```bash
-    git clone https://github.com/ajmal-uk/byte-coder-ai-agent.git
-    cd byte-coder-ai-agent
-    ```
-2.  Install dependencies:
-    ```bash
-    npm install
-    ```
-3.  Run the extension:
-    Press `F5` to open the Extension Development Host.
+### 🎨 4. Premium Experience
+- **"App-Like" UI**: A beautiful, dark-mode optimized interface that feels like a native part of VS Code.
+- **Sidekick Mode**: Dock it to the right sidebar for a true "Pair Programmer" experience.
 
-## 📖 Usage
+---
 
-1.  **Open the Chat**: Click the `Byte AI` icon in the Activity Bar.
-2.  **Ask Questions**: Type naturally, e.g., *"Refactor this function to be async"*.
-3.  **Use Context Menu**: Right-click any code selection and choose:
-    - `Byte AI: Explain Selection`
-    - `Byte AI: Fix Bugs`
-    - `Byte AI: Generate Docs`
+## 🚀 Getting Started
 
-## 🔒 Security Policy
-- **Data Privacy**: Your code is sent to the configured AI backend only when you interact with the chat.
-- **Command Execution**: No command is run without user approval.
+1.  **Install**: Click the "Install" button above.
+2.  **Open**: Click the **Byte AI** icon in the sidebar (or run `View: Open View`).
+3.  **Chat**: Just type!
+    - *"How do I refactor this to be async?"*
+    - *"Create a React component for a login form"*
+    - *"Explain why this code is failing"*
 
-## 🤝 Contributing
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+## 💡 Pro Tips for Students & Devs
 
-## 👨‍💻 Author
-Created by **Ajmal U K** (uthakkan).
+- **For Students**: Ask *"Explain this concept like I'm 5"*. The AI will switch to "Teacher Mode".
+- **For Pros**: Ask *"Refactor for performance"*. The AI will switch to "Architect Mode".
+
+---
+
+## 🔒 Privacy & Security
+
+- **Your Code**: Is only sent to the AI processing engine when you explicitly chat.
+- **Your Terminal**: Is strictly locked. The AI can *propose* commands, but only **YOU** can execute them.
+
+---
+
+## 👨‍💻 Support & Contribution
+
+**Created by**: [Ajmal U K (ajmal-uk)](https://github.com/ajmal-uk)  
+**Publisher**: `uthakkan`
+
+Found a bug? Want a feature?
+[**Contribute on GitHub**](https://github.com/ajmal-uk/byte-coder-ai-agent)
+
+---
+<div align="center">
+  <i>Make coding magic happen.</i> 🔮
+</div>
