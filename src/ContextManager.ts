@@ -269,17 +269,16 @@ export class ContextManager {
      * Prune cache to stay within memory limits
      */
     private pruneCache(): void {
-        const entries = Array.from(this.contextCache.entries());
-        let totalSize = entries.reduce((sum, [_, item]) => sum + item.content.length, 0);
+        const entries = Array.from(this.contextCache.entries())
+            .sort((a, b) => a[1].timestamp - b[1].timestamp);
+        let totalSize = entries.reduce((sum, [, item]) => sum + item.content.length, 0);
 
-        // Remove oldest entries until under limit
-        while (totalSize > this.MAX_CONTEXT_SIZE && entries.length > 0) {
-            entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
-            const oldest = entries.shift();
-            if (oldest) {
-                this.contextCache.delete(oldest[0]);
-                totalSize -= oldest[1].content.length;
+        for (const [key, item] of entries) {
+            if (totalSize <= this.MAX_CONTEXT_SIZE) {
+                break;
             }
+            this.contextCache.delete(key);
+            totalSize -= item.content.length;
         }
     }
 

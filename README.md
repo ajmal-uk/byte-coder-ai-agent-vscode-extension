@@ -1,34 +1,21 @@
 <div align="center">
   <img src="images/logo.png" width="128" height="128" alt="Byte Coder AI Logo" />
   <h1>Byte Coder AI Agent</h1>
-  <p>
-    <b>🚀 Agentic AI Coding Assistant with Intelligent Context Awareness</b>
-  </p>
-  
-  [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg?style=for-the-badge&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=uthakkan.byte-coder-ai-agent)
-[![Installs](https://img.shields.io/visual-studio-marketplace/i/uthakkan.byte-coder-ai-agent?style=for-the-badge&color=28a745)](https://marketplace.visualstudio.com/items?itemName=uthakkan.byte-coder-ai-agent)
-[![License](https://img.shields.io/github/license/ajmal-uk/byte-coder-ai-agent?style=for-the-badge&color=orange)](LICENSE)
-
-  <br />
-  
-  [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/ajmal.uk)
-[![PayPal](https://img.shields.io/badge/PayPal-Donate-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://www.paypal.com/ncp/payment/AWQFP73AKV4SN)
-
-  <br />
-  <i>Powered by a Multi-Agent Architecture for Superior Code Understanding</i>
+  <p><b>🚀 Agentic AI Coding Assistant with Intelligent Context Awareness</b></p>
+  <p><i>Powered by a Multi-Agent Architecture for Superior Code Understanding</i></p>
 </div>
-
-<br />
-
-> **Byte Coder** is not just another AI chat extension — it's an **intelligent coding agent** that deeply understands your entire codebase. Using a sophisticated **multi-agent system**, it analyzes your intent, discovers relevant files across your workspace, and extracts precisely the code context needed to give you accurate, project-aware answers 
 
 ---
 
-## 📦 Install from VS Code Marketplace
+> **Byte Coder** is not just another AI chat extension — it's an **intelligent coding agent** that deeply understands your entire codebase. Using a sophisticated **multi-agent system**, it analyzes your intent, discovers relevant files across your workspace, and extracts precisely the code context needed to give you accurate, project-aware answers.
 
-**[👉 Install Byte Coder AI Agent](https://marketplace.visualstudio.com/items?itemName=uthakkan.byte-coder-ai-agent)**
+---
 
-Or search for **"Byte Coder AI"** in the VS Code Extensions panel.
+## 📦 Install
+
+**[👉 Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=uthakkan.byte-coder-ai-agent)**
+
+Or search for **"Byte Coder AI"** in VS Code Extensions.
 
 ---
 
@@ -36,18 +23,11 @@ Or search for **"Byte Coder AI"** in the VS Code Extensions panel.
 
 Most AI coding tools just send your selected code to an API. **Byte Coder is an agent** — it thinks, searches, and reasons about your entire project before responding.
 
-<table>
-<tr>
-<td width="50%">
-
 ### 🤖 Agentic Intelligence
 - **Multi-Agent System** — 4 specialized sub-agents working in concert
 - **Semantic Understanding** — knows "login" also means "auth", "session", "signin"
 - **AST-Aware Extraction** — finds functions & classes, not just text
 - **Parallel Processing** — blazing fast workspace searches
-
-</td>
-<td width="50%">
 
 ### 💎 Premium Experience
 - **Glassmorphism UI** — stunning translucent design
@@ -55,29 +35,21 @@ Most AI coding tools just send your selected code to an API. **Byte Coder is an 
 - **Rich Markdown** — syntax highlighting with MacOS-style code blocks
 - **Session History** — searchable conversation archive
 
-</td>
-</tr>
-</table>
-
 ---
 
 ## 🧠 Intelligent Agent System
 
 Byte Coder's brain consists of **4 specialized sub-agents** working together:
 
-```mermaid
-graph LR
-    A[Your Query] --> B[🔍 IntentAnalyzer]
-    B --> C[📂 FileFinderAgent]
-    C --> D[✂️ CodeExtractorAgent]
-    D --> E[⚖️ RelevanceScorerAgent]
-    E --> F[🤖 AI Response]
-    
-    style B fill:#3b82f6,stroke:#fff,color:#fff
-    style C fill:#10b981,stroke:#fff,color:#fff
-    style D fill:#f59e0b,stroke:#fff,color:#fff
-    style E fill:#8b5cf6,stroke:#fff,color:#fff
+<div align="center">
+
 ```
+┌─────────────┐    ┌──────────────────┐    ┌──────────────────┐    ┌────────────────────┐    ┌─────────────────────┐    ┌─────────────┐
+│ Your Query  │ ─▶ │ 🔍 IntentAnalyzer │ ─▶ │ 📂 FileFinderAgent│ ─▶ │ ✂️ CodeExtractor   │ ─▶ │ ⚖️ RelevanceScorer  │ ─▶ │ 🤖 Response │
+└─────────────┘    └──────────────────┘    └──────────────────┘    └────────────────────┘    └─────────────────────┘    └─────────────┘
+```
+
+</div>
 
 | Agent | What It Does |
 |-------|--------------|

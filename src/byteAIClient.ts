@@ -172,8 +172,7 @@ export class ByteAIClient {
                         "Cache-Control": "no-cache",
                         "Pragma": "no-cache"
                     },
-                    handshakeTimeout: CONNECT_TIMEOUT,
-                    rejectUnauthorized: false
+                    handshakeTimeout: CONNECT_TIMEOUT
                 });
 
                 this._ws.on('open', () => {

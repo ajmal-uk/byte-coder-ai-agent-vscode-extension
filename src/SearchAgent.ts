@@ -10,7 +10,8 @@ import {
     CodeExtractorAgent,
     RelevanceScorerAgent,
     SearchIntent,
-    ScoredResult
+    ScoredResult,
+    ScoredChunk
 } from './agents';
 
 export interface SearchStatus {
@@ -113,7 +114,7 @@ export class SearchAgent {
      */
     private formatContext(
         results: ScoredResult[],
-        selection: Map<string, any[]>,
+        selection: Map<string, ScoredChunk[]>,
         intent: SearchIntent,
         startTime: number
     ): string {

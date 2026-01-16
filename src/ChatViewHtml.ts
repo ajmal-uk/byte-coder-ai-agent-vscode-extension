@@ -648,31 +648,50 @@ export class ChatViewHtml {
                 }
                 #settings-drawer.open { width: 100%; }
 
-                .settings-content { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 24px; }
+                .settings-content { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
                 
                 .setting-group { display: flex; flex-direction: column; gap: 8px; }
+                .setting-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+                .setting-icon { opacity: 0.7; display: flex; align-items: center; }
+                .setting-info { flex: 1; }
                 .setting-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
-                .setting-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+                .setting-desc { font-size: 12px; color: var(--text-secondary); opacity: 0.8; line-height: 1.4; }
+                .settings-divider { height: 1px; background: var(--border); margin: 4px 0; }
+                .drawer-title { display: flex; align-items: center; gap: 8px; font-weight: 600; }
                 
                 .setting-input {
                     background: var(--input-bg); border: 1px solid var(--border); color: var(--text-primary);
-                    padding: 10px; border-radius: 8px; font-family: inherit; font-size: 13px; resize: vertical;
-                    min-height: 80px; outline: none; transition: border-color 0.2s;
+                    padding: 12px; border-radius: 8px; font-family: inherit; font-size: 13px; resize: vertical;
+                    min-height: 100px; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
                 }
-                .setting-input:focus { border-color: var(--accent); }
+                .setting-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0, 114, 255, 0.15); }
+                .setting-input::placeholder { color: var(--text-secondary); opacity: 0.6; }
 
-                /* Range Slider */
-                .range-container { display: flex; align-items: center; gap: 12px; }
-                input[type=range] {
-                    flex: 1; height: 4px; border-radius: 2px;
-                    background: var(--bg-hover); outline: none; -webkit-appearance: none;
+                /* Keyboard Shortcuts */
+                .keyboard-shortcuts .setting-header { margin-bottom: 12px; }
+                .shortcuts-grid { display: flex; flex-direction: column; gap: 8px; }
+                .shortcut-item { 
+                    display: flex; justify-content: space-between; align-items: center; 
+                    padding: 8px 12px; background: var(--bg-hover); border-radius: 6px;
                 }
-                input[type=range]::-webkit-slider-thumb {
-                    -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
-                    background: var(--accent); cursor: pointer; border: 2px solid var(--bg-app);
-                    box-shadow: 0 0 0 1px var(--accent);
+                .shortcut-key { 
+                    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+                    background: var(--bg-app); padding: 4px 8px; border-radius: 4px;
+                    border: 1px solid var(--border); color: var(--text-primary);
                 }
-                #tempValue { font-family: var(--font-mono); font-size: 13px; width: 30px; text-align: right; }
+                .shortcut-action { font-size: 12px; color: var(--text-secondary); }
+                
+                /* Save Button */
+                .btn-save {
+                    display: flex; align-items: center; justify-content: center; gap: 8px;
+                    width: 100%; padding: 12px 16px; border: none; border-radius: 8px;
+                    background: var(--accent); color: var(--accent-foreground);
+                    font-size: 13px; font-weight: 500; cursor: pointer;
+                    transition: all 0.2s; box-shadow: var(--shadow-sm);
+                }
+                .btn-save:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+
+
 
                 /* Toggle Switch */
                 .setting-row { display: flex; justify-content: space-between; align-items: center; }
@@ -749,23 +768,30 @@ export class ChatViewHtml {
             <div id="settings-drawer">
                 <div class="drawer-header">
                     <div class="drawer-top-bar">
-                        <span>Settings</span>
-                        <button class="btn-icon" onclick="toggleSettings()" title="Close">×</button>
+                        <span class="drawer-title">${icons.settings} Settings</span>
+                        <button class="btn-icon" onclick="toggleSettings()" title="Close">${icons.close}</button>
                     </div>
                 </div>
                 <div class="settings-content">
                     <div class="setting-group">
-                        <div class="setting-label">CUSTOM INSTRUCTIONS</div>
-                        <div class="setting-desc">Define the AI's persona and behavior.</div>
-                        <textarea id="customInstructions" class="setting-input" rows="4" placeholder="E.g. You are an expert Python developer. Be concise."></textarea>
+                        <div class="setting-header">
+                            <span class="setting-icon">${icons.edit}</span>
+                            <div class="setting-label">CUSTOM INSTRUCTIONS</div>
+                        </div>
+                        <div class="setting-desc">Customize the AI's behavior and persona for this workspace.</div>
+                        <textarea id="customInstructions" class="setting-input" rows="5" placeholder="E.g. You are an expert Python developer. Always include type hints. Be concise."></textarea>
                     </div>
 
+                    <div class="settings-divider"></div>
 
                     <div class="setting-group">
                          <div class="setting-row">
-                             <div>
-                                 <div class="setting-label">AUTO-CONTEXT</div>
-                                 <div class="setting-desc">Automatically gather relevant context.</div>
+                             <div class="setting-info">
+                                 <div class="setting-header">
+                                     <span class="setting-icon">${icons.code}</span>
+                                     <div class="setting-label">AUTO-CONTEXT</div>
+                                 </div>
+                                 <div class="setting-desc">Automatically include relevant code context from your project.</div>
                              </div>
                              <label class="switch">
                                  <input type="checkbox" id="autoContext" checked>
@@ -773,9 +799,40 @@ export class ChatViewHtml {
                              </label>
                          </div>
                     </div>
+
+                    <div class="settings-divider"></div>
+
+                    <div class="setting-group keyboard-shortcuts">
+                        <div class="setting-header">
+                            <span class="setting-icon">⌨️</span>
+                            <div class="setting-label">KEYBOARD SHORTCUTS</div>
+                        </div>
+                        <div class="shortcuts-grid">
+                            <div class="shortcut-item">
+                                <span class="shortcut-key">Enter</span>
+                                <span class="shortcut-action">Send message</span>
+                            </div>
+                            <div class="shortcut-item">
+                                <span class="shortcut-key">Shift + Enter</span>
+                                <span class="shortcut-action">New line</span>
+                            </div>
+                            <div class="shortcut-item">
+                                <span class="shortcut-key">ESC</span>
+                                <span class="shortcut-action">Close popups</span>
+                            </div>
+                            <div class="shortcut-item">
+                                <span class="shortcut-key">@</span>
+                                <span class="shortcut-action">Mention file</span>
+                            </div>
+                            <div class="shortcut-item">
+                                <span class="shortcut-key">/</span>
+                                <span class="shortcut-action">Quick command</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="drawer-footer">
-                    <button class="btn-clear" onclick="saveSettings()">${icons.check} Save Changes</button>
+                    <button class="btn-save" onclick="saveSettings()">${icons.check} Save Changes</button>
                 </div>
             </div>
 
@@ -861,6 +918,7 @@ export class ChatViewHtml {
             <div id="toast-container"></div>
             <script>
                 const vscode = acquireVsCodeApi();
+                const initialState = vscode.getState() || {};
                 
                 // Global Error Handler
                 window.onerror = function(msg, source, lineno, colno, error) {
@@ -1019,6 +1077,7 @@ export class ChatViewHtml {
                         }
                     }
                     commandPopup.classList.remove('show');
+                    persistState();
                 });
                 
                 // Send Message
@@ -1040,6 +1099,7 @@ export class ChatViewHtml {
                     showThinkingIndicator();
                     
                     vscode.postMessage({ type: 'sendMessage', value: text });
+                    persistState();
                 }
                 
                 function showTypingIndicator() {
@@ -1057,6 +1117,7 @@ export class ChatViewHtml {
                     vscode.postMessage({ type: 'stopGeneration' });
                     isGenerating = false;
                     updateUIState();
+                    persistState();
                 });
 
                 messageInput.addEventListener('keydown', (e) => {
@@ -1135,6 +1196,7 @@ export class ChatViewHtml {
                                 sendMessage();
                             } else {
                                 messageInput.focus();
+                                persistState();
                             }
                             break;
                             
@@ -1188,14 +1250,15 @@ export class ChatViewHtml {
                            isGenerating = true;
                            updateUIState();
                            showTypingIndicator();
+                           persistState();
                            break;
 
                         case 'error':
                            hideTypingIndicator();
                            isGenerating = false;
                            updateUIState();
-                           // Use Toast instead of chat message
                            window.showToast(message.value);
+                           persistState();
                            break;
 
                         case 'fileList':
@@ -1205,19 +1268,21 @@ export class ChatViewHtml {
                         case 'updateSettings':
                            const s = message.value;
                            if (s) {
-                               document.getElementById('customInstructions').value = s.customInstructions || '';
-                               document.getElementById('tempSlider').value = s.temperature || 0.7;
-                               document.getElementById('tempValue').innerText = s.temperature || 0.7;
-                               document.getElementById('autoContext').checked = s.autoContext !== false;
+                               const customInstructionsEl = document.getElementById('customInstructions');
+                               const autoContextEl = document.getElementById('autoContext');
+                               if (customInstructionsEl) customInstructionsEl.value = s.customInstructions || '';
+                               if (autoContextEl) autoContextEl.checked = s.autoContext !== false;
                            }
                            break;
                     }
                 });
 
                 let messageIndex = 0;
+                let messageHistory = [];
                 
                 function addMessage(role, text) {
                     const currentIdx = messageIndex++;
+                    messageHistory.push({ role, text });
                     const div = document.createElement('div');
                     div.className = 'message ' + role;
                     div.dataset.index = currentIdx;
@@ -1275,10 +1340,43 @@ export class ChatViewHtml {
                     // Remove empty state dynamically
                     const es = document.getElementById('emptyState');
                     if (es) es.remove();
+                    persistState();
                 }
                 
                 function resetMessageIndex() {
                     messageIndex = 0;
+                    messageHistory = [];
+                    persistState();
+                }
+
+                function persistState() {
+                    vscode.setState({
+                        messages: messageHistory,
+                        inputValue: messageInput.value,
+                        isGenerating
+                    });
+                }
+
+                if (initialState && Array.isArray(initialState.messages) && initialState.messages.length > 0) {
+                    chatContainer.innerHTML = '';
+                    resetMessageIndex();
+                    initialState.messages.forEach(msg => {
+                        addMessage(msg.role, msg.text);
+                    });
+                }
+
+                if (initialState && typeof initialState.inputValue === 'string' && initialState.inputValue.length > 0) {
+                    messageInput.value = initialState.inputValue;
+                    messageInput.style.height = 'auto';
+                    messageInput.style.height = (messageInput.scrollHeight) + 'px';
+                    if (messageInput.value === '') messageInput.style.height = '24px';
+                    updateHighlight();
+                }
+
+                if (initialState && initialState.isGenerating) {
+                    isGenerating = true;
+                    updateUIState();
+                    showThinkingIndicator();
                 }
 
                 function enhanceCodeBlocks(container) {
