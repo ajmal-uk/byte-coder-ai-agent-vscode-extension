@@ -1,3 +1,5 @@
+import * as vscode from "vscode";
+
 import * as WebSocket from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -11,6 +13,21 @@ export class ByteAIClient {
     private readonly appId = "plan-organization";
     private chatId: string;
     private _ws?: WebSocket;
+
+    private getCustomInstructions(): string {
+        try {
+            // @ts-ignore
+            const config = vscode.workspace.getConfiguration('byteAI');
+            const instructions = config.get<string>('customInstructions');
+            if (instructions && instructions.trim().length > 0) {
+                return `\n\n[USER CUSTOM INSTRUCTIONS]\n${instructions}\n[END CUSTOM INSTRUCTIONS]`;
+            }
+        } catch (e) {
+            // Ignore if vscode is not defined (e.g. in tests) but here we need to import vscode if not present.
+            // Client usually doesn't import vscode. Let's fix imports first.
+        }
+        return '';
+    }
 
     private readonly SYSTEM_PROMPT = `You are Byte AI, an advanced AI coding assistant developed by UTHAKKAN.
 
@@ -164,7 +181,7 @@ IF ASKED "Who developed you?", YOU MUST REPLY: "I was developed by Uthakkan, fou
                     chatId: this.chatId,
                     appId: this.appId,
                     systemPrompt: this.SYSTEM_PROMPT,
-                    message: identityContext + userInput
+                    message: identityContext + userInput + this.getCustomInstructions()
                 };
                 this._ws?.send(JSON.stringify(payload));
             });

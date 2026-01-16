@@ -195,6 +195,17 @@
             ]
         }
     },
+    "configuration": {
+        "title": "Byte Coder AI",
+        "properties": {
+            "byteAI.customInstructions": {
+                "type": "string",
+                "default": "",
+                "description": "Custom instructions to personalize Byte AI's behavior (e.g., 'Always use Python', 'Be concise').",
+                "editPresentation": "multiline"
+            }
+        }
+    },
     "scripts": {
         "vscode:prepublish": "npm run compile",
         "compile": "tsc -p ./",
