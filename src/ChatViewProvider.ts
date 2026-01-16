@@ -183,6 +183,8 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     break;
             }
         });
+
+        this.restoreLastSession();
     }
 
     public async clearChat() {
@@ -643,6 +645,19 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     private async clearAllSessions() {
         await this._context.globalState.update('byteAI_sessions', []);
         this.handleNewChat();
+    }
+
+    private async restoreLastSession() {
+        const sessions = this._context.globalState.get<any[]>('byteAI_sessions') || [];
+        const lastSession = sessions.find(s =>
+            s.history && s.history.length > 0 && s.title && s.title !== 'New Session'
+        );
+
+        if (lastSession) {
+            this._currentSessionId = lastSession.id;
+            this._history = lastSession.history || [];
+            this._view?.webview.postMessage({ type: 'loadSession', history: this._history });
+        }
     }
 
     private async exportChatAsMarkdown() {

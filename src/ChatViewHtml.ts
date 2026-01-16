@@ -969,6 +969,7 @@ export class ChatViewHtml {
 
                 let isGenerating = false;
                 let currentAssistantMessageDiv = null;
+                let currentAssistantMessageIndex = null;
                 
                 function createThinkingIndicator() {
                     const wrapper = document.createElement('div');
@@ -1085,6 +1086,9 @@ export class ChatViewHtml {
                     const text = messageInput.value.trim();
                     if (!text || isGenerating) return;
                     
+                    currentAssistantMessageDiv = null;
+                    currentAssistantMessageIndex = null;
+                    
                     addMessage('user', text);
                     messageInput.value = '';
                     messageInput.style.height = '24px';
@@ -1166,6 +1170,15 @@ export class ChatViewHtml {
                                 currentAssistantMessageDiv.innerHTML = marked.parse(message.value);
                                 enhanceCodeBlocks(currentAssistantMessageDiv.parentElement);
                                 chatContainer.scrollTop = chatContainer.scrollHeight;
+                                
+                                if (currentAssistantMessageIndex !== null &&
+                                    currentAssistantMessageIndex >= 0 &&
+                                    currentAssistantMessageIndex < messageHistory.length) {
+                                    const msg = messageHistory[currentAssistantMessageIndex];
+                                    if (msg.role === 'assistant') {
+                                        msg.text = message.value;
+                                    }
+                                }
                             } else {
                                 addMessage('assistant', message.value);
                             }
@@ -1173,7 +1186,9 @@ export class ChatViewHtml {
                             if (!message.isStream) {
                                 isGenerating = false;
                                 currentAssistantMessageDiv = null;
+                                currentAssistantMessageIndex = null;
                                 updateUIState();
+                                persistState();
                             }
                             break;
                         
@@ -1207,6 +1222,9 @@ export class ChatViewHtml {
                         case 'loadSession':
                              chatContainer.innerHTML = '';
                              resetMessageIndex();
+                             hideThinkingIndicator();
+                             currentAssistantMessageDiv = null;
+                             currentAssistantMessageIndex = null;
                              if (message.history.length === 0) {
                                  chatContainer.innerHTML = \`<div id="emptyState" class="empty-state">
                                      <div class="empty-greeting">What can I help you build?</div>
@@ -1238,7 +1256,6 @@ export class ChatViewHtml {
                                  message.history.forEach(msg => {
                                      addMessage(msg.role, msg.text);
                                  });
-                                 currentAssistantMessageDiv = null;
                              }
                              break;
 
@@ -1256,6 +1273,8 @@ export class ChatViewHtml {
                         case 'error':
                            hideTypingIndicator();
                            isGenerating = false;
+                           currentAssistantMessageDiv = null;
+                           currentAssistantMessageIndex = null;
                            updateUIState();
                            window.showToast(message.value);
                            persistState();
@@ -1334,6 +1353,7 @@ export class ChatViewHtml {
 
                     if (role === 'assistant') {
                         currentAssistantMessageDiv = contentDiv;
+                        currentAssistantMessageIndex = currentIdx;
                         enhanceCodeBlocks(div);
                     }
 
@@ -1514,9 +1534,13 @@ export class ChatViewHtml {
                 }
                 
                 
-                // Override addMessage to hide empty state
+                // Override addMessage to hide empty state and reset streaming state for new user messages
                 const originalAddMessage = addMessage;
                 addMessage = function(role, text) {
+                    if (role === 'user') {
+                        currentAssistantMessageDiv = null;
+                        currentAssistantMessageIndex = null;
+                    }
                     const es = document.getElementById('emptyState');
                     if (es) es.remove();
                     return originalAddMessage(role, text);
