@@ -2,7 +2,7 @@
     "name": "byte-coder-ai-agent",
     "displayName": "Byte Coder AI Agent",
     "description": "🚀 Agentic AI coding assistant with multi-agent architecture. Features 4 specialized sub-agents: IntentAnalyzer (semantic search), FileFinderAgent (smart discovery), CodeExtractorAgent (AST-aware extraction), and RelevanceScorerAgent. Understands your entire codebase, not just selected code. Premium glassmorphism UI with @ file mentions, / slash commands, and one-click actions. Free & powerful alternative to Copilot!",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "publisher": "uthakkan",
     "icon": "images/logo.png",
     "galleryBanner": {

@@ -940,6 +940,53 @@ export class ChatViewHtml {
                 const filePopup = document.getElementById('filePopup');
                 const emptyState = document.getElementById('emptyState');
                 
+                // Popup navigation state
+                let commandPopupSelectedIndex = -1;
+                let filePopupSelectedIndex = -1;
+                
+                // Helper: Update visual selection in command popup
+                function updateCommandPopupSelection() {
+                    const items = commandPopup.querySelectorAll('.command-item');
+                    items.forEach((item, idx) => {
+                        if (idx === commandPopupSelectedIndex) {
+                            item.classList.add('selected');
+                        } else {
+                            item.classList.remove('selected');
+                        }
+                    });
+                    // Scroll selected item into view
+                    if (commandPopupSelectedIndex >= 0 && items[commandPopupSelectedIndex]) {
+                        items[commandPopupSelectedIndex].scrollIntoView({ block: 'nearest' });
+                    }
+                }
+                
+                // Helper: Update visual selection in file popup
+                function updateFilePopupSelection() {
+                    const items = filePopup.querySelectorAll('.file-item');
+                    items.forEach((item, idx) => {
+                        if (idx === filePopupSelectedIndex) {
+                            item.classList.add('selected');
+                        } else {
+                            item.classList.remove('selected');
+                        }
+                    });
+                    // Scroll selected item into view
+                    if (filePopupSelectedIndex >= 0 && items[filePopupSelectedIndex]) {
+                        items[filePopupSelectedIndex].scrollIntoView({ block: 'nearest' });
+                    }
+                }
+                
+                // Reset popup selection when popup is shown
+                function resetCommandPopupSelection() {
+                    commandPopupSelectedIndex = 0;
+                    updateCommandPopupSelection();
+                }
+                
+                function resetFilePopupSelection() {
+                    filePopupSelectedIndex = 0;
+                    updateFilePopupSelection();
+                }
+                
                 // Inline thinking indicator state
                 let thinkingIndicatorEl = null;
                 
@@ -1058,6 +1105,9 @@ export class ChatViewHtml {
                          const searchStr = val.substring(lastAt + 1);
                          if (!searchStr.includes(' ') && !searchStr.includes('\\n')) {
                              debouncedFileSearch(searchStr);
+                             if (!filePopup.classList.contains('show')) {
+                                 filePopupSelectedIndex = 0;
+                             }
                              filePopup.classList.add('show');
                              return;
                          }
@@ -1072,6 +1122,10 @@ export class ChatViewHtml {
                         if (charBefore === ' ') {
                              const cmdStr = val.substring(lastSlash);
                              if (!cmdStr.includes(' ') && !cmdStr.includes('\\n')) {
+                                if (!commandPopup.classList.contains('show')) {
+                                    commandPopupSelectedIndex = 0;
+                                    setTimeout(updateCommandPopupSelection, 10);
+                                }
                                 commandPopup.classList.add('show');
                                 return;
                              }
@@ -1125,26 +1179,83 @@ export class ChatViewHtml {
                 });
 
                 messageInput.addEventListener('keydown', (e) => {
+                    const isFilePopupOpen = filePopup.classList.contains('show');
+                    const isCommandPopupOpen = commandPopup.classList.contains('show');
+                    
+                    // Arrow key navigation for file popup
+                    if (isFilePopupOpen) {
+                        const items = filePopup.querySelectorAll('.file-item');
+                        const itemCount = items.length;
+                        
+                        if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            filePopupSelectedIndex = (filePopupSelectedIndex + 1) % itemCount;
+                            updateFilePopupSelection();
+                            return;
+                        }
+                        if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            filePopupSelectedIndex = filePopupSelectedIndex <= 0 ? itemCount - 1 : filePopupSelectedIndex - 1;
+                            updateFilePopupSelection();
+                            return;
+                        }
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            const selectedItem = items[filePopupSelectedIndex] || items[0];
+                            if (selectedItem) selectedItem.click();
+                            return;
+                        }
+                        if (e.key === 'Tab') {
+                            e.preventDefault();
+                            const selectedItem = items[filePopupSelectedIndex] || items[0];
+                            if (selectedItem) selectedItem.click();
+                            return;
+                        }
+                    }
+                    
+                    // Arrow key navigation for command popup
+                    if (isCommandPopupOpen) {
+                        const items = commandPopup.querySelectorAll('.command-item');
+                        const itemCount = items.length;
+                        
+                        if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            commandPopupSelectedIndex = (commandPopupSelectedIndex + 1) % itemCount;
+                            updateCommandPopupSelection();
+                            return;
+                        }
+                        if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            commandPopupSelectedIndex = commandPopupSelectedIndex <= 0 ? itemCount - 1 : commandPopupSelectedIndex - 1;
+                            updateCommandPopupSelection();
+                            return;
+                        }
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            const selectedItem = items[commandPopupSelectedIndex] || items[0];
+                            if (selectedItem) selectedItem.click();
+                            return;
+                        }
+                        if (e.key === 'Tab') {
+                            e.preventDefault();
+                            const selectedItem = items[commandPopupSelectedIndex] || items[0];
+                            if (selectedItem) selectedItem.click();
+                            return;
+                        }
+                    }
+                    
+                    // Regular Enter to send message
                     if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
-                        if (filePopup.classList.contains('show')) {
-                             // If popup open, select first item
-                             const first = filePopup.querySelector('.file-item');
-                             if (first) first.click();
-                             return;
-                        }
-                        if (commandPopup.classList.contains('show')) {
-                             // If popup open, select first item
-                             const first = commandPopup.querySelector('.command-item');
-                             if (first) first.click();
-                             return;
-                        }
                         sendMessage();
                     }
-                    // Navigation for popups could go here (ArrowUp/Down)
+                    
+                    // Escape to close popups
                     if (e.key === 'Escape') {
                         commandPopup.classList.remove('show');
                         filePopup.classList.remove('show');
+                        commandPopupSelectedIndex = -1;
+                        filePopupSelectedIndex = -1;
                     }
                 });
 
@@ -1227,7 +1338,7 @@ export class ChatViewHtml {
                              currentAssistantMessageIndex = null;
                              if (message.history.length === 0) {
                                  chatContainer.innerHTML = \`<div id="emptyState" class="empty-state">
-                                     <div class="empty-greeting">What can I help you build?</div>
+                                     <div class="empty-greeting">Byte Ai Agent</div>
                                      <div class="empty-subtitle">Ask me anything about your code, or try one of these quick actions</div>
                                      <div class="quick-actions">
                                          <div class="action-card" onclick="setInputValue('/explain ')">
@@ -1463,15 +1574,17 @@ export class ChatViewHtml {
                     filePopup.innerHTML = '';
                     if (!files || files.length === 0) {
                         filePopup.classList.remove('show');
+                        filePopupSelectedIndex = -1;
                         return;
                     }
                     
-                    let selectedFileIndex = 0;
+                    // Reset selection to first item when new files are loaded
+                    filePopupSelectedIndex = 0;
                     
                     files.forEach((file, index) => {
                         const div = document.createElement('div');
                         div.className = 'file-item';
-                        if (index === selectedFileIndex) div.classList.add('selected');
+                        if (index === filePopupSelectedIndex) div.classList.add('selected');
 
                         // Determine Icon
                         const ext = file.path.split('.').pop().toLowerCase();
