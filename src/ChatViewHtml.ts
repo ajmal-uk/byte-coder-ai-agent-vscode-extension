@@ -554,6 +554,82 @@ export class ChatViewHtml {
                 .icon-html { color: #e34c26; }
                 .icon-py { color: #3572A5; }
 
+                /* Settings Drawer */
+                #settings-drawer {
+                    position: absolute; top: 0; right: 0; bottom: 0; width: 0;
+                    background: var(--bg-app);
+                    transition: width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+                    overflow: hidden; z-index: 100;
+                    display: flex; flex-direction: column;
+                }
+                #settings-drawer.open { width: 100%; }
+
+                .settings-content { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 24px; }
+                
+                .setting-group { display: flex; flex-direction: column; gap: 8px; }
+                .setting-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+                .setting-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+                
+                .setting-input {
+                    background: var(--input-bg); border: 1px solid var(--border); color: var(--text-primary);
+                    padding: 10px; border-radius: 8px; font-family: inherit; font-size: 13px; resize: vertical;
+                    min-height: 80px; outline: none; transition: border-color 0.2s;
+                }
+                .setting-input:focus { border-color: var(--accent); }
+
+                /* Range Slider */
+                .range-container { display: flex; align-items: center; gap: 12px; }
+                input[type=range] {
+                    flex: 1; height: 4px; border-radius: 2px;
+                    background: var(--bg-hover); outline: none; -webkit-appearance: none;
+                }
+                input[type=range]::-webkit-slider-thumb {
+                    -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+                    background: var(--accent); cursor: pointer; border: 2px solid var(--bg-app);
+                    box-shadow: 0 0 0 1px var(--accent);
+                }
+                #tempValue { font-family: var(--font-mono); font-size: 13px; width: 30px; text-align: right; }
+
+                /* Toggle Switch */
+                .setting-row { display: flex; justify-content: space-between; align-items: center; }
+                .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+                .switch input { opacity: 0; width: 0; height: 0; }
+                .slider {
+                    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+                    background-color: var(--bg-hover); transition: .4s; border-radius: 20px;
+                }
+                .slider:before {
+                    position: absolute; content: ""; height: 16px; width: 16px;
+                    left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%;
+                }
+                input:checked + .slider { background-color: var(--accent); }
+                input:checked + .slider:before { transform: translateX(20px); }
+
+                /* Toast Notifications */
+                #toast-container {
+                    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+                    z-index: 1000; display: flex; flex-direction: column; gap: 8px;
+                    width: 90%; max-width: 400px; pointer-events: none;
+                }
+                .toast {
+                    background: var(--bg-app); border: 1px solid rgba(239, 68, 68, 0.3);
+                    border-left: 3px solid #ef4444;
+                    padding: 12px 16px; border-radius: 8px;
+                    box-shadow: var(--shadow-lg); pointer-events: auto;
+                    display: flex; align-items: flex-start; gap: 10px;
+                    animation: toastSlide 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+                    backdrop-filter: blur(12px);
+                }
+                @keyframes toastSlide { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+                .toast-icon { color: #ef4444; flex-shrink: 0; margin-top: 2px; }
+                .toast-content { flex: 1; font-size: 13px; color: var(--text-primary); line-height: 1.4; }
+                .toast-close {
+                    color: var(--text-secondary); cursor: pointer; padding: 4px;
+                    border-radius: 4px; border: none; background: transparent;
+                    transition: all 0.2s;
+                }
+                .toast-close:hover { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
             </style>
         </head>
         <body>
@@ -566,6 +642,7 @@ export class ChatViewHtml {
                     <button class="btn-icon" onclick="exportChat()" title="Export Chat">${icons.download}</button>
                     <button class="btn-icon" onclick="newChat()" title="New Chat">${icons.plus}</button>
                     <button class="btn-icon" onclick="toggleDrawer()" title="History">${icons.history}</button>
+                    <button class="btn-icon" onclick="toggleSettings()" title="Settings">${icons.settings}</button>
                 </div>
             </header>
 
@@ -582,6 +659,47 @@ export class ChatViewHtml {
                 <div class="session-list" id="sessionList"></div>
                 <div class="drawer-footer">
                     <button class="btn-clear" onclick="clearAllSessions()">${icons.trash} Clear All</button>
+                </div>
+            </div>
+
+            <div id="settings-drawer">
+                <div class="drawer-header">
+                    <div class="drawer-top-bar">
+                        <span>Settings</span>
+                        <button class="btn-icon" onclick="toggleSettings()" title="Close">×</button>
+                    </div>
+                </div>
+                <div class="settings-content">
+                    <div class="setting-group">
+                        <div class="setting-label">CUSTOM INSTRUCTIONS</div>
+                        <div class="setting-desc">Define the AI's persona and behavior.</div>
+                        <textarea id="customInstructions" class="setting-input" rows="4" placeholder="E.g. You are an expert Python developer. Be concise."></textarea>
+                    </div>
+
+                    <div class="setting-group">
+                        <div class="setting-label">CREATIVITY (Temperature)</div>
+                        <div class="setting-desc">Adjust response randomness (0.0 - 1.0).</div>
+                        <div class="range-container">
+                            <input type="range" id="tempSlider" min="0" max="1" step="0.1" value="0.7" oninput="updateTempLabel(this.value)">
+                            <span id="tempValue">0.7</span>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                         <div class="setting-row">
+                             <div>
+                                 <div class="setting-label">AUTO-CONTEXT</div>
+                                 <div class="setting-desc">Automatically gather relevant context.</div>
+                             </div>
+                             <label class="switch">
+                                 <input type="checkbox" id="autoContext" checked>
+                                 <span class="slider round"></span>
+                             </label>
+                         </div>
+                    </div>
+                </div>
+                <div class="drawer-footer">
+                    <button class="btn-clear" onclick="saveSettings()">${icons.check} Save Changes</button>
                 </div>
             </div>
 
@@ -658,8 +776,19 @@ export class ChatViewHtml {
                 </div>
             </div>
 
+            <div id="toast-container"></div>
             <script>
                 const vscode = acquireVsCodeApi();
+                
+                // Global Error Handler
+                window.onerror = function(msg, source, lineno, colno, error) {
+                    const div = document.createElement('div');
+                    div.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:white;padding:10px;z-index:9999;font-family:monospace;font-size:12px;';
+                    div.innerText = 'JS Error: ' + msg;
+                    document.body.appendChild(div);
+                    return false;
+                };
+
                 const chatContainer = document.getElementById('chat-container');
                 const messageInput = document.getElementById('messageInput');
                 const inputHighlight = document.getElementById('inputHighlight');
@@ -897,11 +1026,22 @@ export class ChatViewHtml {
                            hideTypingIndicator();
                            isGenerating = false;
                            updateUIState();
-                           addMessage('assistant', '❌ **Error:** ' + message.value);
+                           // Use Toast instead of chat message
+                           window.showToast(message.value);
                            break;
 
                         case 'fileList':
                            renderFiles(message.files);
+                           break;
+
+                        case 'updateSettings':
+                           const s = message.value;
+                           if (s) {
+                               document.getElementById('customInstructions').value = s.customInstructions || '';
+                               document.getElementById('tempSlider').value = s.temperature || 0.7;
+                               document.getElementById('tempValue').innerText = s.temperature || 0.7;
+                               document.getElementById('autoContext').checked = s.autoContext !== false;
+                           }
                            break;
                     }
                 });
@@ -1106,12 +1246,13 @@ export class ChatViewHtml {
                     });
                 }
                 
-                // Override appendMessage to hide empty state
-                const originalAppendMessage = appendMessage;
-                appendMessage = function(role, text) {
+                
+                // Override addMessage to hide empty state
+                const originalAddMessage = addMessage;
+                addMessage = function(role, text) {
                     const es = document.getElementById('emptyState');
                     if (es) es.remove();
-                    return originalAppendMessage(role, text);
+                    return originalAddMessage(role, text);
                 };
 
                 function newChat() {
@@ -1123,8 +1264,17 @@ export class ChatViewHtml {
                 }
 
                 function toggleDrawer() { 
-                    sessionDrawer.classList.toggle('open');
-                    if (sessionDrawer.classList.contains('open')) vscode.postMessage({ type: 'getSessions' });
+                    try {
+                        const sessionDrawer = document.getElementById('session-drawer');
+                        const settingsDrawer = document.getElementById('settings-drawer');
+                        
+                        if (settingsDrawer && settingsDrawer.classList.contains('open')) {
+                            settingsDrawer.classList.remove('open');
+                        }
+
+                        sessionDrawer.classList.toggle('open');
+                        if (sessionDrawer.classList.contains('open')) vscode.postMessage({ type: 'getSessions' });
+                    } catch (e) { console.error(e); }
                 }
 
                 function clearAllSessions() { 
@@ -1259,6 +1409,82 @@ export class ChatViewHtml {
                 window.deleteSession = (id) => {
                     event.stopPropagation();
                     vscode.postMessage({ type: 'deleteSession', id: id });
+                };
+
+                // Settings Functions
+                window.toggleSettings = () => {
+                    try {
+                        const settingsDrawer = document.getElementById('settings-drawer');
+                        const sessionDrawer = document.getElementById('session-drawer');
+                        
+                        if (sessionDrawer && sessionDrawer.classList.contains('open')) {
+                            sessionDrawer.classList.remove('open');
+                        }
+
+                        const isOpen = settingsDrawer.classList.contains('open');
+                        if (!isOpen) {
+                            vscode.postMessage({ type: 'getSettings' });
+                            settingsDrawer.classList.add('open');
+                        } else {
+                            settingsDrawer.classList.remove('open');
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        if(window.showToast) window.showToast("Error opening settings: " + e.message);
+                    }
+                };
+
+                window.saveSettings = () => {
+                    const settings = {
+                        customInstructions: document.getElementById('customInstructions').value,
+                        temperature: parseFloat(document.getElementById('tempSlider').value),
+                        autoContext: document.getElementById('autoContext').checked
+                    };
+                    vscode.postMessage({ type: 'saveSettings', value: settings });
+                    document.getElementById('settings-drawer').classList.remove('open');
+                };
+
+                window.updateTempLabel = (val) => {
+                    document.getElementById('tempValue').innerText = val;
+                };
+
+                window.executeCommand = (cmd) => {
+                    vscode.postMessage({ type: 'executeCommand', command: cmd });
+                };
+
+                // Toast Helper
+                // Toast Helper (DOM optimized)
+                window.showToast = (message, duration = 5000) => {
+                    const container = document.getElementById('toast-container');
+                    if (!container) return;
+                    
+                    const toast = document.createElement('div');
+                    toast.className = 'toast';
+                    
+                    const icon = document.createElement('div');
+                    icon.className = 'toast-icon';
+                    icon.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
+                    
+                    const content = document.createElement('div');
+                    content.className = 'toast-content';
+                    content.textContent = message;
+                    
+                    const close = document.createElement('button');
+                    close.className = 'toast-close';
+                    close.innerHTML = '✕';
+                    close.onclick = function() { toast.remove(); };
+                    
+                    toast.appendChild(icon);
+                    toast.appendChild(content);
+                    toast.appendChild(close);
+                    
+                    container.appendChild(toast);
+                    
+                    setTimeout(() => {
+                        toast.style.opacity = '0';
+                        toast.style.transform = 'translateY(-10px)';
+                        setTimeout(() => toast.remove(), 300);
+                    }, duration);
                 };
 
             </script>

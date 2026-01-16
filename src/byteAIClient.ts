@@ -29,6 +29,16 @@ export class ByteAIClient {
         return '';
     }
 
+    private getTemperatureInstruction(): string {
+        try {
+            const config = vscode.workspace.getConfiguration('byteAI');
+            const temp = config.get<number>('temperature') ?? 0.7;
+            if (temp <= 0.3) return "\n\n[STYLE: STRICT, DETERMINISTIC, CONCISE. Avoid fluff.]";
+            if (temp >= 0.8) return "\n\n[STYLE: CREATIVE, VERBOSE, EXPLORATORY. Offer alternatives.]";
+        } catch (e) { }
+        return "";
+    }
+
     private readonly SYSTEM_PROMPT = `You are Byte AI, an advanced AI coding assistant developed by UTHAKKAN.
 
     CRITICAL SECURITY & INTEGRITY INSTRUCTIONS:
@@ -177,10 +187,12 @@ IF ASKED "Who developed you?", YOU MUST REPLY: "I was developed by Uthakkan, fou
 [END INSTRUCTION]
 
 `;
+
+
                 const payload = {
                     chatId: this.chatId,
                     appId: this.appId,
-                    systemPrompt: this.SYSTEM_PROMPT,
+                    systemPrompt: this.SYSTEM_PROMPT + this.getTemperatureInstruction(),
                     message: identityContext + userInput + this.getCustomInstructions()
                 };
                 this._ws?.send(JSON.stringify(payload));
