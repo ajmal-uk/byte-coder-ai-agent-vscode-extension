@@ -67,6 +67,24 @@ export function activate(context: vscode.ExtensionContext) {
             }
         })
     );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('byteAI.optimizeCode', () => {
+            provider.runCommand('optimize');
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('byteAI.securityCheck', () => {
+            provider.runCommand('security');
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('byteAI.reviewCode', () => {
+            provider.runCommand('review');
+        })
+    );
 }
 
 export function deactivate() { }

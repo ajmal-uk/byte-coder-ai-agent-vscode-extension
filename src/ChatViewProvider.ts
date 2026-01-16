@@ -129,6 +129,9 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                 case 'stopGeneration':
                     this._client.disconnect();
                     break;
+                case 'exportChat':
+                    await this.exportChatAsMarkdown();
+                    break;
                 case 'error':
                     vscode.window.showErrorMessage('Webview Error: ' + data.value);
                     break;
@@ -163,7 +166,11 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             'fix': "Act as an Expert Debugger. Analyze the following code for bugs, race conditions, memory leaks, and logical errors. Fix the issues and explain the root cause of each bug. Provide the corrected code block.\n\nCode:\n```\n" + text + "\n```",
             'refactor': "Act as a Clean Code Expert. Refactor the following code to strictly follow SOLID principles, DRY, and modern best practices (ES6+ for JS/TS). Improve readability, maintainability, and efficiency. Explain the key improvements made.\n\nCode:\n```\n" + text + "\n```",
             'test': "Generate comprehensive unit tests for the following code. Cover happy paths, edge cases, and potential failure modes. Use modern testing frameworks (e.g., Jest/Vitest for JS, Pytest for Python). Mock external dependencies where appropriate.\n\nCode:\n```\n" + text + "\n```",
-            'doc': "Generate professional, industry-standard documentation (e.g., JSDoc/TSDoc/Docstring) for the following code. Include parameter descriptions, return values, exceptions, and usage examples.\n\nCode:\n```\n" + text + "\n```"
+            'doc': "Generate professional, industry-standard documentation (e.g., JSDoc/TSDoc/Docstring) for the following code. Include parameter descriptions, return values, exceptions, and usage examples.\n\nCode:\n```\n" + text + "\n```",
+            'optimize': "Act as a Performance Engineer. Analyze this code for performance issues including time complexity, memory usage, unnecessary computations, and caching opportunities. Provide an optimized version with benchmarking suggestions.\n\nCode:\n```\n" + text + "\n```",
+            'security': "Act as a Security Expert. Perform a thorough security audit on this code. Check for: XSS, SQL injection, CSRF, authentication flaws, data exposure, insecure dependencies, and other OWASP Top 10 vulnerabilities. Provide fixes for each issue found.\n\nCode:\n```\n" + text + "\n```",
+            'review': "Act as a Senior Code Reviewer. Provide a comprehensive code review covering: code quality, best practices, potential bugs, edge cases, error handling, naming conventions, and architecture concerns. Rate the code quality 1-10 and provide actionable feedback.\n\nCode:\n```\n" + text + "\n```",
+            'convert': "Convert this code to a different programming language while maintaining the same logic and structure. Ask me which language to convert to if not specified.\n\nCode:\n```\n" + text + "\n```"
         };
 
         const message = text ? prompts[command] : `/${command}`;
@@ -202,36 +209,84 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             this._history.push({ role: 'user', text: message });
             await this.saveCurrentSession();
 
-            // 1. Resolve Context from @mentions
+            // 1. Resolve Context from @mentions or auto-detect current file
             let contextMsg = message;
             const mentionRegex = /@([^\s]+)/g;
             const matches = message.match(mentionRegex);
 
             if (matches && matches.length > 0) {
-                const files = await vscode.workspace.findFiles('**/*');
+                // User explicitly mentioned files with @
+                const files = await vscode.workspace.findFiles('**/*', '{**/node_modules/**,**/.git/**}');
                 let contextBlock = "\n\n--- CONTEXT ---\n";
+                let filesFound = 0;
 
                 for (const match of matches) {
                     const filename = match.substring(1); // remove @
-                    // Find best matching file
-                    const file = files.find(f => f.fsPath.endsWith(filename) || vscode.workspace.asRelativePath(f) === filename);
+                    const lowerFilename = filename.toLowerCase();
+
+                    // Find best matching file with multiple strategies
+                    let file = files.find(f => {
+                        const relativePath = vscode.workspace.asRelativePath(f).toLowerCase();
+                        const fsPath = f.fsPath.toLowerCase();
+                        const baseName = relativePath.split('/').pop() || '';
+
+                        // Strategy 1: Exact relative path match
+                        if (relativePath === lowerFilename) return true;
+                        // Strategy 2: Path ends with the filename
+                        if (relativePath.endsWith(lowerFilename)) return true;
+                        // Strategy 3: fsPath ends with filename
+                        if (fsPath.endsWith(lowerFilename)) return true;
+                        // Strategy 4: Base name exact match
+                        if (baseName === lowerFilename) return true;
+                        // Strategy 5: Contains the filename
+                        if (relativePath.includes(lowerFilename)) return true;
+
+                        return false;
+                    });
 
                     if (file) {
                         try {
                             const content = await vscode.workspace.fs.readFile(file);
                             const textContent = new TextDecoder().decode(content);
-                            // Simple optimization: Limit file size?
+                            const relativePath = vscode.workspace.asRelativePath(file);
+
                             if (textContent.length < 100000) {
-                                contextBlock += `File: ${filename}\n\`\`\`\n${textContent}\n\`\`\`\n\n`;
+                                // Detect language from extension
+                                const ext = relativePath.split('.').pop() || 'text';
+                                contextBlock += `File: ${relativePath}\n\`\`\`${ext}\n${textContent}\n\`\`\`\n\n`;
+                                filesFound++;
                             } else {
-                                contextBlock += `File: ${filename} (Skipped: Too large)\n\n`;
+                                contextBlock += `File: ${relativePath} (Skipped: Too large)\n\n`;
                             }
                         } catch (e) {
                             console.error('Error reading context file:', file.fsPath, e);
+                            contextBlock += `File: ${filename} (Error reading file)\n\n`;
                         }
+                    } else {
+                        contextBlock += `File: ${filename} (Not found in workspace)\n\n`;
                     }
                 }
-                contextMsg += contextBlock;
+
+                if (filesFound > 0) {
+                    contextMsg += contextBlock;
+                }
+            } else {
+                // No @ mentions - auto-include current active file as context
+                const editor = vscode.window.activeTextEditor;
+                if (editor) {
+                    const document = editor.document;
+                    const fileName = vscode.workspace.asRelativePath(document.uri);
+                    const language = document.languageId;
+                    const content = document.getText();
+
+                    // Only include if file is not too large
+                    if (content.length < 100000) {
+                        let contextBlock = "\n\n--- CURRENT FILE CONTEXT ---\n";
+                        contextBlock += `**Active File:** ${fileName} (${language})\n`;
+                        contextBlock += `\`\`\`${language}\n${content}\n\`\`\`\n`;
+                        contextMsg += contextBlock;
+                    }
+                }
             }
 
             // Stream response
@@ -325,6 +380,36 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         this.handleNewChat();
     }
 
+    private async exportChatAsMarkdown() {
+        if (this._history.length === 0) {
+            vscode.window.showWarningMessage('No messages to export.');
+            return;
+        }
+
+        let markdown = `# Byte AI Chat Export\n\n`;
+        markdown += `**Date:** ${new Date().toLocaleString()}\n\n`;
+        markdown += `---\n\n`;
+
+        for (const msg of this._history) {
+            if (msg.role === 'user') {
+                markdown += `## 👤 User\n\n${msg.text}\n\n`;
+            } else {
+                markdown += `## 🤖 Byte AI\n\n${msg.text}\n\n`;
+            }
+            markdown += `---\n\n`;
+        }
+
+        const uri = await vscode.window.showSaveDialog({
+            defaultUri: vscode.Uri.file(`byte-ai-chat-${Date.now()}.md`),
+            filters: { 'Markdown': ['md'], 'All Files': ['*'] }
+        });
+
+        if (uri) {
+            await vscode.workspace.fs.writeFile(uri, Buffer.from(markdown, 'utf8'));
+            vscode.window.showInformationMessage(`Chat exported to ${uri.fsPath}`);
+        }
+    }
+
     private _getHtmlForWebview(webview: vscode.Webview) {
         const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'images', 'logo.png'));
 
@@ -338,7 +423,11 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
             zap: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>',
             trash: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>',
-            stop: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>'
+            stop: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>',
+            download: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>',
+            thumbsUp: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>',
+            thumbsDown: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"></path></svg>',
+            file: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>'
         };
 
         return `<!DOCTYPE html>
@@ -745,6 +834,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     Byte AI
                 </div>
                 <div class="header-actions">
+                    <button class="btn-icon" onclick="exportChat()" title="Export Chat">${icons.download}</button>
                     <button class="btn-icon" onclick="newChat()" title="New Chat">${icons.plus}</button>
                     <button class="btn-icon" onclick="toggleDrawer()" title="History">${icons.history}</button>
                 </div>
@@ -806,6 +896,18 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     </div>
                     <div class="command-item" onclick="selectCommand('doc')">
                         <span class="cmd-key">/doc</span> <span class="cmd-desc">Generate documentation</span>
+                    </div>
+                    <div class="command-item" onclick="selectCommand('optimize')">
+                        <span class="cmd-key">/optimize</span> <span class="cmd-desc">Optimize performance</span>
+                    </div>
+                    <div class="command-item" onclick="selectCommand('security')">
+                        <span class="cmd-key">/security</span> <span class="cmd-desc">Security audit</span>
+                    </div>
+                    <div class="command-item" onclick="selectCommand('review')">
+                        <span class="cmd-key">/review</span> <span class="cmd-desc">Code review</span>
+                    </div>
+                    <div class="command-item" onclick="selectCommand('convert')">
+                        <span class="cmd-key">/convert</span> <span class="cmd-desc">Convert to other language</span>
                     </div>
                 </div>
                 
@@ -916,7 +1018,11 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     { key: 'fix', desc: 'Fix bugs in selection' },
                     { key: 'refactor', desc: 'Refactor selection' },
                     { key: 'test', desc: 'Generate unit tests' },
-                    { key: 'doc', desc: 'Generate documentation' }
+                    { key: 'doc', desc: 'Generate documentation' },
+                    { key: 'optimize', desc: 'Optimize performance' },
+                    { key: 'security', desc: 'Security audit' },
+                    { key: 'review', desc: 'Code review' },
+                    { key: 'convert', desc: 'Convert to other language' }
                 ];
 
                 function filterCommands(search) {
@@ -1077,6 +1183,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     appendMessage('user', text);
                     messageInput.value = '';
                     messageInput.style.height = 'auto'; // Reset properly
+                    updateHighlight(); // Clear the highlight overlay
                     
                     isGenerating = true;
                     // Toggle Buttons
@@ -1380,6 +1487,10 @@ export class ChatPanel implements vscode.WebviewViewProvider {
 
                 function newChat() {
                     vscode.postMessage({ type: 'newChat' });
+                }
+
+                function exportChat() {
+                    vscode.postMessage({ type: 'exportChat' });
                 }
 
                 function toggleDrawer() { 

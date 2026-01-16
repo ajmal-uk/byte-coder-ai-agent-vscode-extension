@@ -10,7 +10,7 @@
         "theme": "dark"
     },
     "author": {
-        "name": "UTHAKKAN (Ajmal U K)",
+        "name": "Ajmal U K",
         "email": "contact.uthakkan@gmail.com",
         "url": "https://uthakkan.pythonanywhere.com"
     },
@@ -110,6 +110,18 @@
             {
                 "command": "byteAI.quickAsk",
                 "title": "Byte AI: Quick Ask"
+            },
+            {
+                "command": "byteAI.optimizeCode",
+                "title": "Byte AI: Optimize Performance"
+            },
+            {
+                "command": "byteAI.securityCheck",
+                "title": "Byte AI: Security Audit"
+            },
+            {
+                "command": "byteAI.reviewCode",
+                "title": "Byte AI: Code Review"
             }
         ],
         "keybindings": [
@@ -162,6 +174,21 @@
                 },
                 {
                     "command": "byteAI.generateDocs",
+                    "group": "byteAI",
+                    "when": "editorHasSelection"
+                },
+                {
+                    "command": "byteAI.optimizeCode",
+                    "group": "byteAI",
+                    "when": "editorHasSelection"
+                },
+                {
+                    "command": "byteAI.securityCheck",
+                    "group": "byteAI",
+                    "when": "editorHasSelection"
+                },
+                {
+                    "command": "byteAI.reviewCode",
                     "group": "byteAI",
                     "when": "editorHasSelection"
                 }
