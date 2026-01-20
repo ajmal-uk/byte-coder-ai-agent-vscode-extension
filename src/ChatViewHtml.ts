@@ -113,7 +113,7 @@ export class ChatViewHtml {
                 /* Chat Area */
                 #chat-container {
                     flex: 1; overflow-y: auto; padding: 14px 18px;
-                    display: flex; flex-direction: column; gap: 12px;
+                    display: flex; flex-direction: column; gap: 24px;
                     scroll-behavior: smooth;
                     mask-image: linear-gradient(to bottom, transparent, black 16px);
                     -webkit-mask-image: linear-gradient(to bottom, transparent, black 16px);
@@ -363,11 +363,14 @@ export class ChatViewHtml {
                 }
 
                 .input-box {
-                    background: var(--input-bg); border: 1px solid var(--border);
+                    background: var(--input-bg); border: none;
                     border-radius: 16px; padding: 12px 14px;
                     display: flex; flex-direction: column; gap: 8px;
                     transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
                     box-shadow: var(--shadow-md);
+                }
+                .input-box:focus-within {
+                    box-shadow: var(--shadow-lg);
                 }
                 
                 /* Highlighting */
@@ -1171,6 +1174,27 @@ export class ChatViewHtml {
                     isGenerating = false;
                     updateUIState();
                     persistState();
+                });
+
+                // Global shortcuts
+                document.addEventListener('keydown', (e) => {
+                    // Focus input on '/' if not already focused
+                    if (e.key === '/' && document.activeElement !== messageInput) {
+                        e.preventDefault();
+                        messageInput.focus();
+                        messageInput.value += '/';
+                        updateHighlight();
+                        return;
+                    }
+                    // Focus input on any key if no other element is focused
+                    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && document.activeElement === document.body) {
+                        messageInput.focus();
+                    }
+                });
+
+                // Auto-focus on load
+                window.addEventListener('load', () => {
+                    messageInput.focus();
                 });
 
                 messageInput.addEventListener('keydown', (e) => {
