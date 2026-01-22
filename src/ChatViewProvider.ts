@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { ByteAIClient } from './byteAIClient';
 import { ContextManager } from './ContextManager';
 import { SearchAgent } from './SearchAgent';
+import { AgentOrchestrator } from './core';
 
 export class ChatPanel implements vscode.WebviewViewProvider {
     public static readonly viewType = 'byteAI.chatView';
@@ -11,6 +12,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     private _client: ByteAIClient;
     private _contextManager: ContextManager;
     private _searchAgent: SearchAgent;
+    private _agentOrchestrator: AgentOrchestrator;
     private _currentSessionId: string;
     private _history: Array<{ role: 'user' | 'assistant', text: string, files?: any[], commands?: any[] }> = [];
 
@@ -21,6 +23,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         this._client = new ByteAIClient();
         this._contextManager = new ContextManager();
         this._searchAgent = new SearchAgent();
+        this._agentOrchestrator = new AgentOrchestrator(_context);
         this._currentSessionId = Date.now().toString();
         this._history = [];
     }
@@ -102,7 +105,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                                     fileUri = vscode.Uri.file(openPath);
                                 }
                             }
-                            
+
                             // Check if it's a folder
                             try {
                                 const stat = await vscode.workspace.fs.stat(fileUri);
@@ -135,8 +138,8 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                         const parts = relativePath.split('/');
                         // Add all parent directories
                         for (let i = 0; i < parts.length - 1; i++) {
-                             const dirPath = parts.slice(0, i + 1).join('/');
-                             dirs.add(dirPath);
+                            const dirPath = parts.slice(0, i + 1).join('/');
+                            dirs.add(dirPath);
                         }
                     });
 
@@ -181,7 +184,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                         const lowerPath = dir.toLowerCase();
                         const dirName = dir.split('/').pop() || '';
                         const lowerName = dirName.toLowerCase();
-                        
+
                         let score = 0;
                         if (!query) {
                             score = 1;
@@ -202,11 +205,11 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                         }
                         // Create a fake URI for the folder
                         const root = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0].uri : vscode.Uri.file('/');
-                        return { 
-                            file: vscode.Uri.joinPath(root, dir), 
-                            path: dir, 
-                            score, 
-                            isFolder: true 
+                        return {
+                            file: vscode.Uri.joinPath(root, dir),
+                            path: dir,
+                            score,
+                            isFolder: true
                         };
                     });
 
@@ -397,9 +400,9 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             this._view?.webview.postMessage({ type: 'loadSession', history: this._history });
 
             // Set input box
-            this._view?.webview.postMessage({ 
-                type: 'setAndSendMessage', 
-                value: msg.text, 
+            this._view?.webview.postMessage({
+                type: 'setAndSendMessage',
+                value: msg.text,
                 justSet: true,
                 files: msg.files,
                 commands: msg.commands
@@ -430,15 +433,15 @@ export class ChatPanel implements vscode.WebviewViewProvider {
 
             // Append commands to contextMsg if they exist
             if (commands && commands.length > 0) {
-                 contextMsg = `[User Commands: ${commands.map(c => '/' + c).join(' ')}]\n` + contextMsg;
+                contextMsg = `[User Commands: ${commands.map(c => '/' + c).join(' ')}]\n` + contextMsg;
             }
 
             // Append attached files content
             if (files && files.length > 0) {
                 let fileContextBlock = "\n\n--- ATTACHED FILES ---\n";
                 for (const f of files) {
-                    if (f.isFolder) continue; 
-                    
+                    if (f.isFolder) continue;
+
                     try {
                         let uri: vscode.Uri;
                         if (f.fullPath) {
@@ -461,7 +464,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                             ext,
                             message
                         );
-                        
+
                         fileContextBlock += `File: ${relativePath}\n\`\`\`${ext}\n${contextItem.content}\n\`\`\`\n\n`;
                     } catch (e) {
                         console.error('Error reading attached file:', f, e);
@@ -685,6 +688,64 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             this._contextManager.addConversationTurn('assistant', fullResponse);
             this._view.webview.postMessage({ type: 'addResponse', value: fullResponse, isStream: false });
             await this.saveCurrentSession();
+
+            // === AGENTIC EXECUTION ===
+            // Parse AI response for executable instructions
+            console.log('[ByteCoder] Parsing AI response for actions...');
+            const instructions = this._agentOrchestrator.parseAIResponse(fullResponse);
+            console.log('[ByteCoder] Found instructions:', instructions.length);
+
+            if (instructions.length > 0) {
+                // Log what we found
+                console.log('[ByteCoder] Instructions details:', JSON.stringify(instructions, null, 2));
+
+                this._view?.webview.postMessage({
+                    type: 'agentStatus',
+                    phase: 'Executing',
+                    message: `Found ${instructions.length} action(s) to execute`
+                });
+
+                // Check if auto-execute is enabled (default: true for simple tasks)
+                const autoExecute = vscode.workspace.getConfiguration('byteAI').get<boolean>('autoExecute', true);
+
+                // Check if all actions are safe (file creation, folders, or safe git commands)
+                const safeCommands = ['git add', 'git commit', 'git status', 'git init', 'git log'];
+                const isSafe = instructions.length <= 5 &&
+                    instructions.every(i =>
+                        i.type === 'create_file' ||
+                        i.type === 'create_folder' ||
+                        (i.type === 'run_command' && safeCommands.some(c => i.command?.startsWith(c)))
+                    );
+
+                if (autoExecute && isSafe) {
+                    // Auto-execute safe actions without confirmation
+                    console.log('[ByteCoder] Auto-executing safe actions...');
+                    const result = await this._agentOrchestrator.executeInstructions(
+                        instructions,
+                        (progress) => {
+                            this._view?.webview.postMessage({
+                                type: 'agentStatus',
+                                phase: 'Executing',
+                                message: progress
+                            });
+                        }
+                    );
+
+                    const summaryMsg = `\n\n---\n**🤖 Actions Executed**\n${result.actions.map(a => a.result).join('\n')}`;
+                    const updatedResponse = fullResponse + summaryMsg;
+                    this._history[this._history.length - 1].text = updatedResponse;
+                    this._view?.webview.postMessage({ type: 'addResponse', value: updatedResponse, isStream: false });
+                    await this.saveCurrentSession();
+
+                    vscode.window.showInformationMessage(`✅ Created ${result.actions.filter(a => a.success).length} file(s)`);
+                } else {
+                    // Not safe or auto-execute disabled - ask user
+                    await this.promptForExecution(instructions, fullResponse);
+                }
+            } else {
+                console.log('[ByteCoder] No executable actions found in response');
+            }
+
             this._view?.webview.postMessage({ type: 'agentStatusDone' });
 
         } catch (error: any) {
@@ -867,5 +928,59 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         await config.update('customInstructions', settings.customInstructions, vscode.ConfigurationTarget.Global);
         await config.update('autoContext', settings.autoContext, vscode.ConfigurationTarget.Global);
         await this.handleGetSettings();
+    }
+
+    /**
+     * Prompt user for execution confirmation
+     */
+    private async promptForExecution(instructions: any[], fullResponse: string) {
+        // Build preview
+        const preview = instructions.map(i => {
+            if (i.type === 'create_file') return `📝 Create: ${i.path}`;
+            if (i.type === 'create_folder') return `📁 Create dir: ${i.path}`;
+            if (i.type === 'run_command') return `🔧 Run: ${i.command}`;
+            return `${i.type}: ${i.path || i.command}`;
+        }).join('\n');
+
+        console.log('[ByteCoder] Prompting for execution:', preview);
+
+        const choice = await vscode.window.showInformationMessage(
+            `Byte Coder wants to execute ${instructions.length} action(s):\n${preview.substring(0, 200)}`,
+            'Execute All',
+            'Cancel'
+        );
+
+        if (choice === 'Execute All') {
+            console.log('[ByteCoder] User approved execution');
+            const result = await this._agentOrchestrator.executeInstructions(
+                instructions,
+                (progress) => {
+                    this._view?.webview.postMessage({
+                        type: 'agentStatus',
+                        phase: 'Executing',
+                        message: progress
+                    });
+                }
+            );
+
+            // Show execution summary
+            const summaryMsg = `\n\n---\n**🤖 Agentic Execution Complete**\n${result.summary}\n${result.actions.map(a => a.result).join('\n')}`;
+            const updatedResponse = fullResponse + summaryMsg;
+            this._history[this._history.length - 1].text = updatedResponse;
+            this._view?.webview.postMessage({ type: 'addResponse', value: updatedResponse, isStream: false });
+            await this.saveCurrentSession();
+
+            if (result.checkpointId) {
+                vscode.window.showInformationMessage(
+                    `✅ Done! Checkpoint: ${result.checkpointId}`
+                );
+            } else {
+                vscode.window.showInformationMessage(
+                    `✅ Executed ${result.actions.filter(a => a.success).length}/${result.actions.length} actions`
+                );
+            }
+        } else {
+            console.log('[ByteCoder] User cancelled execution');
+        }
     }
 }

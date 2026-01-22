@@ -1,0 +1,418 @@
+/**
+ * CodePlannerAgent - Low-level implementation designer
+ * Generates file structures, interfaces, and API specifications
+ */
+
+import * as vscode from 'vscode';
+import { BaseAgent, AgentOutput, CodePlan } from '../core/AgentTypes';
+
+export interface CodePlannerInput {
+    query: string;
+    projectType: string;
+    existingFiles?: string[];
+    techStack?: {
+        frontend?: string;
+        backend?: string;
+        database?: string;
+    };
+    features?: string[];
+}
+
+export interface CodePlannerResult extends CodePlan {
+    dependencies: string[];
+    devDependencies: string[];
+    configFiles: { name: string; purpose: string }[];
+    folderPurposes: { folder: string; purpose: string }[];
+}
+
+export class CodePlannerAgent extends BaseAgent<CodePlannerInput, CodePlannerResult> {
+    // Common folder structures by project type
+    private readonly FOLDER_TEMPLATES: Record<string, string[]> = {
+        'web': [
+            'src/',
+            'src/components/',
+            'src/components/ui/',
+            'src/pages/',
+            'src/hooks/',
+            'src/utils/',
+            'src/styles/',
+            'src/types/',
+            'public/',
+            'public/images/'
+        ],
+        'api': [
+            'src/',
+            'src/routes/',
+            'src/controllers/',
+            'src/services/',
+            'src/models/',
+            'src/middleware/',
+            'src/utils/',
+            'src/types/',
+            'src/config/',
+            'tests/'
+        ],
+        'fullstack': [
+            'src/',
+            'src/app/',
+            'src/components/',
+            'src/components/ui/',
+            'src/lib/',
+            'src/hooks/',
+            'src/types/',
+            'src/styles/',
+            'prisma/',
+            'public/'
+        ]
+    };
+
+    constructor() {
+        super({ name: 'CodePlanner', timeout: 10000 });
+    }
+
+    async execute(input: CodePlannerInput): Promise<AgentOutput<CodePlannerResult>> {
+        const startTime = Date.now();
+
+        try {
+            // Generate file structure
+            const fileStructure = this.generateFileStructure(input);
+
+            // Generate interfaces
+            const interfaces = this.generateInterfaces(input);
+
+            // Generate API endpoints (if applicable)
+            const apiEndpoints = this.generateApiEndpoints(input);
+
+            // Generate state flows (if applicable)
+            const stateFlows = this.generateStateFlows(input);
+
+            // Determine dependencies
+            const { dependencies, devDependencies } = this.determineDependencies(input);
+
+            // Generate config files list
+            const configFiles = this.determineConfigFiles(input);
+
+            // Generate folder purposes
+            const folderPurposes = this.generateFolderPurposes(input.projectType);
+
+            const result: CodePlannerResult = {
+                fileStructure,
+                interfaces,
+                apiEndpoints,
+                stateFlows,
+                dependencies,
+                devDependencies,
+                configFiles,
+                folderPurposes
+            };
+
+            return this.createOutput('success', result, 0.85, startTime, {
+                reasoning: `Generated ${fileStructure.length} files/folders, ${interfaces.length} interfaces`
+            });
+
+        } catch (error) {
+            return this.handleError(error as Error, startTime);
+        }
+    }
+
+    /**
+     * Generate file structure based on project type and features
+     */
+    private generateFileStructure(input: CodePlannerInput): string[] {
+        const structure: string[] = [];
+        const baseStructure = this.FOLDER_TEMPLATES[input.projectType] || this.FOLDER_TEMPLATES['web'];
+
+        // Add base folders
+        structure.push(...baseStructure);
+
+        // Add feature-specific files
+        const lowerQuery = input.query.toLowerCase();
+        const features = input.features || this.extractFeatures(lowerQuery);
+
+        for (const feature of features) {
+            structure.push(...this.getFeatureFiles(feature, input.projectType));
+        }
+
+        // Add entry point files
+        if (input.projectType === 'web' || input.projectType === 'fullstack') {
+            structure.push('src/App.tsx');
+            structure.push('src/main.tsx');
+            structure.push('src/index.css');
+        } else if (input.projectType === 'api') {
+            structure.push('src/index.ts');
+            structure.push('src/app.ts');
+        }
+
+        // Filter existing files if provided
+        if (input.existingFiles?.length) {
+            return structure.filter(f => !input.existingFiles!.some(e => e.includes(f.replace('/', ''))));
+        }
+
+        return [...new Set(structure)].sort();
+    }
+
+    /**
+     * Extract features from query
+     */
+    private extractFeatures(query: string): string[] {
+        const features: string[] = [];
+        const featureKeywords: Record<string, string> = {
+            'auth': 'authentication',
+            'login': 'authentication',
+            'cart': 'cart',
+            'checkout': 'checkout',
+            'product': 'products',
+            'user': 'users',
+            'profile': 'profile',
+            'dashboard': 'dashboard',
+            'admin': 'admin',
+            'settings': 'settings',
+            'notification': 'notifications',
+            'chat': 'chat',
+            'payment': 'payments',
+            'search': 'search'
+        };
+
+        for (const [keyword, feature] of Object.entries(featureKeywords)) {
+            if (query.includes(keyword)) {
+                features.push(feature);
+            }
+        }
+
+        return features;
+    }
+
+    /**
+     * Get files for a specific feature
+     */
+    private getFeatureFiles(feature: string, projectType: string): string[] {
+        const files: string[] = [];
+        const capitalFeature = feature.charAt(0).toUpperCase() + feature.slice(1);
+
+        if (projectType === 'web' || projectType === 'fullstack') {
+            files.push(`src/components/${capitalFeature}/`);
+            files.push(`src/components/${capitalFeature}/${capitalFeature}Container.tsx`);
+            files.push(`src/hooks/use${capitalFeature}.ts`);
+        }
+
+        if (projectType === 'api' || projectType === 'fullstack') {
+            files.push(`src/routes/${feature}.routes.ts`);
+            files.push(`src/controllers/${feature}.controller.ts`);
+            files.push(`src/services/${feature}.service.ts`);
+            files.push(`src/models/${feature}.model.ts`);
+        }
+
+        return files;
+    }
+
+    /**
+     * Generate TypeScript interfaces
+     */
+    private generateInterfaces(input: CodePlannerInput): string[] {
+        const interfaces: string[] = [];
+        const features = input.features || this.extractFeatures(input.query.toLowerCase());
+
+        // Common base interfaces
+        interfaces.push('interface ApiResponse<T> { success: boolean; data?: T; error?: string }');
+        interfaces.push('interface PaginatedResponse<T> extends ApiResponse<T[]> { total: number; page: number; pageSize: number }');
+
+        // Feature-specific interfaces
+        if (features.includes('authentication') || features.includes('users')) {
+            interfaces.push('interface User { id: string; email: string; name: string; createdAt: Date }');
+            interfaces.push('interface AuthCredentials { email: string; password: string }');
+            interfaces.push('interface AuthContext { user: User | null; login: (creds: AuthCredentials) => Promise<void>; logout: () => void }');
+        }
+
+        if (features.includes('products')) {
+            interfaces.push('interface Product { id: string; name: string; price: number; description: string; imageUrl: string; stock: number }');
+        }
+
+        if (features.includes('cart')) {
+            interfaces.push('interface CartItem { productId: string; quantity: number; price: number }');
+            interfaces.push('interface Cart { items: CartItem[]; total: number }');
+        }
+
+        if (features.includes('payments')) {
+            interfaces.push('interface PaymentIntent { id: string; amount: number; currency: string; status: string }');
+        }
+
+        return interfaces;
+    }
+
+    /**
+     * Generate API endpoints
+     */
+    private generateApiEndpoints(input: CodePlannerInput): { method: string; path: string; description: string }[] | undefined {
+        if (input.projectType === 'web') return undefined;
+
+        const endpoints: { method: string; path: string; description: string }[] = [];
+        const features = input.features || this.extractFeatures(input.query.toLowerCase());
+
+        if (features.includes('authentication') || features.includes('users')) {
+            endpoints.push(
+                { method: 'POST', path: '/api/auth/register', description: 'User registration' },
+                { method: 'POST', path: '/api/auth/login', description: 'User login' },
+                { method: 'POST', path: '/api/auth/logout', description: 'User logout' },
+                { method: 'GET', path: '/api/auth/me', description: 'Get current user' },
+                { method: 'PUT', path: '/api/users/:id', description: 'Update user profile' }
+            );
+        }
+
+        if (features.includes('products')) {
+            endpoints.push(
+                { method: 'GET', path: '/api/products', description: 'List all products' },
+                { method: 'GET', path: '/api/products/:id', description: 'Get product by ID' },
+                { method: 'POST', path: '/api/products', description: 'Create product' },
+                { method: 'PUT', path: '/api/products/:id', description: 'Update product' },
+                { method: 'DELETE', path: '/api/products/:id', description: 'Delete product' }
+            );
+        }
+
+        if (features.includes('cart')) {
+            endpoints.push(
+                { method: 'GET', path: '/api/cart', description: 'Get cart' },
+                { method: 'POST', path: '/api/cart/items', description: 'Add item to cart' },
+                { method: 'PUT', path: '/api/cart/items/:id', description: 'Update cart item' },
+                { method: 'DELETE', path: '/api/cart/items/:id', description: 'Remove from cart' }
+            );
+        }
+
+        return endpoints;
+    }
+
+    /**
+     * Generate state flow descriptions
+     */
+    private generateStateFlows(input: CodePlannerInput): string[] | undefined {
+        if (input.projectType === 'api') return undefined;
+
+        const flows: string[] = [];
+        const features = input.features || this.extractFeatures(input.query.toLowerCase());
+
+        if (features.includes('authentication')) {
+            flows.push('Auth Flow: Login → Validate → Store Token → Redirect to Dashboard');
+            flows.push('Session: Check Token → Refresh if Expired → Logout if Invalid');
+        }
+
+        if (features.includes('cart')) {
+            flows.push('Cart Flow: Add Item → Update Count → Calculate Total → Persist');
+        }
+
+        if (features.includes('checkout')) {
+            flows.push('Checkout: Validate Cart → Enter Address → Select Payment → Confirm → Process');
+        }
+
+        return flows;
+    }
+
+    /**
+     * Determine project dependencies
+     */
+    private determineDependencies(input: CodePlannerInput): { dependencies: string[]; devDependencies: string[] } {
+        const deps: string[] = [];
+        const devDeps: string[] = [];
+        const type = input.projectType;
+        const stack = input.techStack;
+
+        // Base dependencies by type
+        if (type === 'web') {
+            deps.push('react', 'react-dom', 'react-router-dom');
+            devDeps.push('typescript', '@types/react', '@types/react-dom', 'vite', '@vitejs/plugin-react');
+        } else if (type === 'api') {
+            deps.push('express', 'cors', 'dotenv');
+            devDeps.push('typescript', '@types/node', '@types/express', 'ts-node', 'nodemon');
+        } else if (type === 'fullstack') {
+            deps.push('next', 'react', 'react-dom');
+            devDeps.push('typescript', '@types/node', '@types/react', '@types/react-dom');
+        }
+
+        // Stack-specific deps
+        if (stack?.database?.includes('Prisma')) {
+            deps.push('@prisma/client');
+            devDeps.push('prisma');
+        }
+
+        if (stack?.frontend?.includes('Tailwind')) {
+            deps.push('tailwindcss');
+            devDeps.push('postcss', 'autoprefixer');
+        }
+
+        // Feature deps
+        const features = input.features || this.extractFeatures(input.query.toLowerCase());
+
+        if (features.includes('authentication')) {
+            deps.push('jsonwebtoken', 'bcryptjs');
+            devDeps.push('@types/jsonwebtoken', '@types/bcryptjs');
+        }
+
+        if (features.includes('payments')) {
+            deps.push('stripe');
+        }
+
+        return { dependencies: deps, devDependencies: devDeps };
+    }
+
+    /**
+     * Determine required config files
+     */
+    private determineConfigFiles(input: CodePlannerInput): { name: string; purpose: string }[] {
+        const configs: { name: string; purpose: string }[] = [
+            { name: 'package.json', purpose: 'Project dependencies and scripts' },
+            { name: 'tsconfig.json', purpose: 'TypeScript configuration' },
+            { name: '.gitignore', purpose: 'Git ignore patterns' },
+            { name: '.env.example', purpose: 'Environment variable template' }
+        ];
+
+        if (input.projectType === 'web') {
+            configs.push({ name: 'vite.config.ts', purpose: 'Vite bundler configuration' });
+        }
+
+        if (input.projectType === 'fullstack') {
+            configs.push({ name: 'next.config.js', purpose: 'Next.js configuration' });
+        }
+
+        if (input.techStack?.frontend?.includes('Tailwind')) {
+            configs.push({ name: 'tailwind.config.js', purpose: 'Tailwind CSS configuration' });
+            configs.push({ name: 'postcss.config.js', purpose: 'PostCSS configuration' });
+        }
+
+        if (input.techStack?.database?.includes('Prisma')) {
+            configs.push({ name: 'prisma/schema.prisma', purpose: 'Database schema' });
+        }
+
+        return configs;
+    }
+
+    /**
+     * Generate folder purpose descriptions
+     */
+    private generateFolderPurposes(projectType: string): { folder: string; purpose: string }[] {
+        const purposes: Record<string, { folder: string; purpose: string }[]> = {
+            'web': [
+                { folder: 'src/components', purpose: 'Reusable React components' },
+                { folder: 'src/components/ui', purpose: 'Base UI primitives (Button, Card, etc.)' },
+                { folder: 'src/pages', purpose: 'Page-level components / routes' },
+                { folder: 'src/hooks', purpose: 'Custom React hooks' },
+                { folder: 'src/utils', purpose: 'Utility functions' },
+                { folder: 'src/types', purpose: 'TypeScript type definitions' },
+                { folder: 'public', purpose: 'Static assets' }
+            ],
+            'api': [
+                { folder: 'src/routes', purpose: 'Express route definitions' },
+                { folder: 'src/controllers', purpose: 'Request handlers' },
+                { folder: 'src/services', purpose: 'Business logic' },
+                { folder: 'src/models', purpose: 'Data models / ORM entities' },
+                { folder: 'src/middleware', purpose: 'Express middleware' },
+                { folder: 'tests', purpose: 'Test files' }
+            ],
+            'fullstack': [
+                { folder: 'src/app', purpose: 'Next.js App Router pages' },
+                { folder: 'src/components', purpose: 'React components' },
+                { folder: 'src/lib', purpose: 'Shared utilities and server actions' },
+                { folder: 'prisma', purpose: 'Database schema and migrations' }
+            ]
+        };
+
+        return purposes[projectType] || purposes['web'];
+    }
+}

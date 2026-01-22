@@ -17,8 +17,8 @@ export interface FileMatch {
 }
 
 export class FileFinderAgent {
-    private readonly MAX_FILES = 8;  // Increased from 5
-    private readonly MIN_SCORE = 2;
+    private readonly MAX_FILES = 12;  // Increased for better coverage
+    private readonly MIN_SCORE = 1;   // Lowered to catch more relevant files
 
     // Cache for workspace files
     private fileCache: vscode.Uri[] | null = null;
@@ -41,10 +41,10 @@ export class FileFinderAgent {
 
     // Extensions to search
     private readonly SEARCHABLE_EXTENSIONS =
-        '**/*.{ts,tsx,js,jsx,py,java,cs,go,rb,php,vue,svelte,json,yaml,yml,md,css,scss,html}';
+        '**/*.{ts,tsx,js,jsx,py,java,cs,go,rb,php,vue,svelte,json,yaml,yml,md,css,scss,html,c,cpp,h,hpp,rs}';
 
     private readonly EXCLUDE_PATTERNS =
-        '{**/node_modules/**,**/.git/**,**/dist/**,**/out/**,**/build/**,**/.next/**,**/coverage/**}';
+        '{**/node_modules/**,**/.git/**,**/dist/**,**/out/**,**/build/**,**/.next/**,**/coverage/**,**/.gemini/**}';
 
     /**
      * Find relevant files based on search intent
@@ -72,7 +72,46 @@ export class FileFinderAgent {
 
         // Sort by score and return top matches
         matches.sort((a, b) => b.score - a.score);
+
+        // Fallback: If no good matches, include important files
+        if (matches.length === 0 || matches[0].score < 3) {
+            const importantFiles = await this.getImportantFiles(allFiles);
+            for (const file of importantFiles) {
+                if (!matches.some(m => m.uri.fsPath === file.uri.fsPath)) {
+                    matches.push(file);
+                }
+            }
+        }
+
         return matches.slice(0, this.MAX_FILES);
+    }
+
+    /**
+     * Get important project files as fallback
+     */
+    private async getImportantFiles(allFiles: vscode.Uri[]): Promise<FileMatch[]> {
+        const important: FileMatch[] = [];
+        const importantNames = ['index', 'main', 'app', 'server', 'package.json', 'readme'];
+
+        for (const uri of allFiles) {
+            const name = uri.fsPath.split('/').pop()?.toLowerCase() || '';
+            for (const imp of importantNames) {
+                if (name.includes(imp)) {
+                    important.push({
+                        uri,
+                        relativePath: vscode.workspace.asRelativePath(uri),
+                        fileName: name,
+                        extension: name.split('.').pop() || '',
+                        score: 5,
+                        matchedKeywords: ['important'],
+                        matchType: 'semantic'
+                    });
+                    break;
+                }
+            }
+        }
+
+        return important.slice(0, 4);
     }
 
     /**

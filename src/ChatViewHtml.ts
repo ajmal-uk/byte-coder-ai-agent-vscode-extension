@@ -1582,6 +1582,7 @@ export class ChatViewHtml {
                             if (currentAssistantMessageDiv) {
                                 currentAssistantMessageDiv.innerHTML = marked.parse(message.value);
                                 enhanceCodeBlocks(currentAssistantMessageDiv.parentElement);
+                                processFileTags(currentAssistantMessageDiv.parentElement);
                                 chatContainer.scrollTop = chatContainer.scrollHeight;
                                 
                                 if (currentAssistantMessageIndex !== null &&
@@ -1905,6 +1906,79 @@ export class ChatViewHtml {
                         
                         header.appendChild(actions);
                         pre.insertBefore(header, code);
+                    });
+                }
+
+                /**
+                 * Process file paths in content and convert to clickable tags
+                 * Detects patterns like \`filename.py\` or [[file:path/to/file.ts]]
+                 */
+                function processFileTags(container) {
+                    const contentDiv = container.querySelector('.content');
+                    if (!contentDiv) return;
+
+                    // File extension pattern
+                    const fileExtensions = ['py', 'js', 'ts', 'jsx', 'tsx', 'html', 'css', 'json', 'md', 'yml', 'yaml', 'sh', 'go', 'rs', 'java', 'c', 'cpp', 'h', 'hpp', 'vue', 'svelte'];
+                    const extPattern = fileExtensions.join('|');
+
+                    // Process inline code elements that look like file paths
+                    contentDiv.querySelectorAll('code').forEach(codeEl => {
+                        // Skip code blocks (inside pre)
+                        if (codeEl.parentElement.tagName === 'PRE') return;
+
+                        const text = codeEl.textContent.trim();
+                        
+                        // Check if it looks like a file path
+                        const isFilePath = new RegExp(\`^[a-zA-Z0-9_\\-./]+\\\\.(\${extPattern})$\`, 'i').test(text);
+                        
+                        if (isFilePath) {
+                            // Convert to clickable file tag
+                            const tag = document.createElement('span');
+                            tag.className = 'file-tag inline-file-tag';
+                            tag.innerHTML = \`
+                                <span class="tag-icon">📄</span>
+                                <span class="tag-text">\${text}</span>
+                            \`;
+                            tag.title = 'Click to open file';
+                            tag.style.cursor = 'pointer';
+                            tag.onclick = (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                vscode.postMessage({ type: 'openFile', path: text });
+                            };
+                            
+                            codeEl.replaceWith(tag);
+                        }
+                    });
+
+                    // Also process [[file:path]] syntax if AI uses it
+                    const walker = document.createTreeWalker(
+                        contentDiv,
+                        NodeFilter.SHOW_TEXT,
+                        null,
+                        false
+                    );
+
+                    const nodesToReplace = [];
+                    while (walker.nextNode()) {
+                        const node = walker.currentNode;
+                        if (node.textContent.includes('[[file:')) {
+                            nodesToReplace.push(node);
+                        }
+                    }
+
+                    nodesToReplace.forEach(node => {
+                        const html = node.textContent.replace(
+                            /\\[\\[file:([^\\]]+)\\]\\]/g,
+                            (match, filePath) => {
+                                return \`<span class="file-tag inline-file-tag" onclick="vscode.postMessage({type:'openFile',path:'\${filePath}'})"><span class="tag-icon">📄</span><span class="tag-text">\${filePath.split('/').pop()}</span></span>\`;
+                            }
+                        );
+                        if (html !== node.textContent) {
+                            const span = document.createElement('span');
+                            span.innerHTML = html;
+                            node.replaceWith(span);
+                        }
                     });
                 }
                 
