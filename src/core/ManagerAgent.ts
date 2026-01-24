@@ -297,6 +297,12 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
             if (intent === 'Build') {
                 pipeline.push({
                     step: step++,
+                    agent: 'CodeGenerator',
+                    parallel: false
+                });
+
+                pipeline.push({
+                    step: step++,
                     agent: 'CommandGenerator',
                     parallel: false,
                     args: { generateStructure: true }

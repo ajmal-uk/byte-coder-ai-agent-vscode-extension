@@ -28,3 +28,7 @@ export { DocWriterAgent, DocWriterInput, DocWriterResult } from './DocWriterAgen
 
 // ===== MEMORY LAYER =====
 export { LongTermMemory, MemoryEntry, MemorySearchResult } from './LongTermMemory';
+
+// ===== SMART CONTEXT LAYER =====
+export { ContextPlanner, ContextPlan, ContextPlannerInput } from './ContextPlanner';
+export { ContextAnalyzer, ContextChunk, AnalyzedContext, ContextAnalyzerInput } from './ContextAnalyzer';

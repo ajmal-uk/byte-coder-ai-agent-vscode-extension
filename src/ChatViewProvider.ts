@@ -5,6 +5,8 @@ import { ByteAIClient } from './byteAIClient';
 import { ContextManager } from './ContextManager';
 import { SearchAgent } from './SearchAgent';
 import { AgentOrchestrator } from './core';
+import { ManagerAgent } from './core/ManagerAgent';
+import { PipelineEngine } from './core/PipelineEngine';
 import { LongTermMemory } from './agents/LongTermMemory';
 
 export class ChatPanel implements vscode.WebviewViewProvider {
@@ -14,6 +16,8 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     private _contextManager: ContextManager;
     private _searchAgent: SearchAgent;
     private _agentOrchestrator: AgentOrchestrator;
+    private _managerAgent: ManagerAgent;
+    private _pipelineEngine: PipelineEngine;
     private _longTermMemory: LongTermMemory;
     private _currentSessionId: string;
     private _history: Array<{ role: 'user' | 'assistant', text: string, files?: any[], commands?: any[] }> = [];
@@ -26,6 +30,8 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         this._contextManager = new ContextManager();
         this._searchAgent = new SearchAgent();
         this._agentOrchestrator = new AgentOrchestrator(_context);
+        this._managerAgent = new ManagerAgent();
+        this._pipelineEngine = new PipelineEngine();
         this._longTermMemory = new LongTermMemory(_context);
         this._currentSessionId = Date.now().toString();
         this._history = [];
@@ -59,6 +65,20 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     break;
                 case 'newChat':
                     this.clearChat();
+                    break;
+                case 'clearData':
+                    // Stop any running processes
+                    this._client.disconnect();
+
+                    // Clear all contexts
+                    this._contextManager.clear();
+                    await this._agentOrchestrator.clearAllData();
+
+                    // Clear chat session
+                    await this.clearChat();
+
+                    // Notify user
+                    vscode.window.showInformationMessage('All session data, context, and temporary states have been cleared.');
                     break;
                 case 'getSessions':
                     await this.getSessions();
@@ -97,31 +117,35 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     const openPath = data.value;
                     if (openPath) {
                         try {
-                            let fileUri;
-                            if (openPath.startsWith('/')) {
-                                fileUri = vscode.Uri.file(openPath);
+                            let uri: vscode.Uri;
+                            // Check if path is absolute
+                            const isAbsolute = openPath.startsWith('/') || /^[a-zA-Z]:\\/.test(openPath);
+
+                            if (isAbsolute) {
+                                uri = vscode.Uri.file(openPath);
                             } else {
-                                const root = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0].uri : undefined;
-                                if (root) {
-                                    fileUri = vscode.Uri.joinPath(root, openPath);
+                                // Try to resolve in workspace
+                                const matches = await vscode.workspace.findFiles('**/' + openPath, '**/node_modules/**', 1);
+                                if (matches.length > 0) {
+                                    uri = matches[0];
                                 } else {
-                                    fileUri = vscode.Uri.file(openPath);
+                                    const root = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0].uri : vscode.Uri.file('/');
+                                    uri = vscode.Uri.joinPath(root, openPath);
                                 }
                             }
 
                             // Check if it's a folder
                             try {
-                                const stat = await vscode.workspace.fs.stat(fileUri);
+                                const stat = await vscode.workspace.fs.stat(uri);
                                 if (stat.type === vscode.FileType.Directory) {
-                                    // Reveal folder in explorer
-                                    await vscode.commands.executeCommand('revealInExplorer', fileUri);
+                                    await vscode.commands.executeCommand('revealInExplorer', uri);
                                 } else {
-                                    const doc = await vscode.workspace.openTextDocument(fileUri);
+                                    const doc = await vscode.workspace.openTextDocument(uri);
                                     await vscode.window.showTextDocument(doc);
                                 }
                             } catch (e) {
-                                // Fallback if stat fails (maybe file doesn't exist yet?)
-                                const doc = await vscode.workspace.openTextDocument(fileUri);
+                                // Fallback
+                                const doc = await vscode.workspace.openTextDocument(uri);
                                 await vscode.window.showTextDocument(doc);
                             }
                         } catch (e) {
@@ -132,11 +156,13 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                 case 'getFiles':
                     const query = data.query ? data.query.toLowerCase() : '';
                     // Search for files (limit to 1000 to keep it fast but broad)
-                    const allFiles = await vscode.workspace.findFiles('**/*', '{**/node_modules/**,**/.git/**,**/out/**,**/dist/**}', 1000);
+                    const allFiles = await vscode.workspace.findFiles('**/*', '{**/node_modules/**,**/.git/**,**/out/**,**/dist/**,**/.bytecoder/**,**/.bytecoder}', 1000);
 
-                    // Extract unique directories
+                    // Extract unique directories and filter .bytecoder
                     const dirs = new Set<string>();
-                    allFiles.forEach(f => {
+                    const validFiles = allFiles.filter(f => !f.fsPath.includes('.bytecoder'));
+
+                    validFiles.forEach(f => {
                         const relativePath = vscode.workspace.asRelativePath(f);
                         const parts = relativePath.split('/');
                         // Add all parent directories
@@ -221,6 +247,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
 
                     const filteredFiles = combined
                         .filter(x => x.score > 0)
+                        .filter(x => !x.path.includes('.bytecoder') && !x.path.includes('.git') && !x.path.includes('node_modules'))
                         .sort((a, b) => {
                             if (a.score !== b.score) return b.score - a.score;
                             if (a.path.length !== b.path.length) return a.path.length - b.path.length;
@@ -522,170 +549,78 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                 lowerMessage.includes('in js')
             );
 
-            if (matches && matches.length > 0) {
+            // === AGENTIC WORKFLOW ===
+            // 1. Analyze Intent & Plan
+            this._view?.webview.postMessage({
+                type: 'agentStatus',
+                phase: 'Thinking',
+                message: 'Manager Agent analyzing request...'
+            });
+
+            const activeEditor = vscode.window.activeTextEditor;
+            const activeFilePath = activeEditor ? vscode.workspace.asRelativePath(activeEditor.document.uri) : undefined;
+            const selectionText = activeEditor && !activeEditor.selection.isEmpty ? activeEditor.document.getText(activeEditor.selection) : undefined;
+
+            // Execute Manager Agent to decide what to do
+            const decision = await this._managerAgent.execute({
+                query: message,
+                activeFilePath,
+                hasSelection: !!selectionText,
+                selectionText
+            });
+
+            // 2. Execute Pipeline if needed
+            let pipelineContext = "";
+            let pipelineResults: any = null;
+
+            if (decision.payload.confidence > 0.6) {
                 this._view?.webview.postMessage({
                     type: 'agentStatus',
-                    phase: 'Context',
-                    message: 'Resolving mentioned files and building context'
+                    phase: 'Planning',
+                    message: `Intent: ${decision.payload.intent} (${(decision.payload.confidence * 100).toFixed(0)}%) - Executing Pipeline`
                 });
-                const files = await vscode.workspace.findFiles('**/*', '{**/node_modules/**,**/.git/**}');
-                let contextBlock = "\n\n--- CONTEXT ---\n";
-                let filesFound = 0;
 
-                for (const match of matches) {
-                    const filename = match.substring(1); // remove @
-                    const lowerFilename = filename.toLowerCase();
-
-                    // 1. Handle @problems
-                    if (lowerFilename === 'problems') {
-                        const diagnostics = vscode.languages.getDiagnostics();
-                        let problemsText = "";
-                        diagnostics.forEach(([uri, diags]) => {
-                            if (diags.length > 0) {
-                                problemsText += `File: ${vscode.workspace.asRelativePath(uri)}\n`;
-                                diags.forEach(d => {
-                                    problemsText += `  - [${vscode.DiagnosticSeverity[d.severity]}] Line ${d.range.start.line + 1}: ${d.message}\n`;
-                                });
-                            }
+                const pipelineOutput = await this._pipelineEngine.execute(
+                    decision.payload,
+                    message,
+                    activeFilePath,
+                    selectionText,
+                    (status) => {
+                        // Send basic status update
+                        this._view?.webview.postMessage({
+                            type: 'agentStatus',
+                            phase: status.phase,
+                            message: status.message
                         });
-                        if (problemsText) {
-                            contextBlock += `\n### PROBLEMS REPORT\n\`\`\`\n${problemsText}\n\`\`\`\n`;
-                            filesFound++;
-                        } else {
-                            contextBlock += `\n### PROBLEMS REPORT\nNo problems found.\n`;
-                            filesFound++;
-                        }
-                        continue;
-                    }
 
-                    // 2. Handle @clipboard
-                    if (lowerFilename === 'clipboard') {
-                        const clipText = await vscode.env.clipboard.readText();
-                        contextBlock += `\n### CLIPBOARD CONTENT\n\`\`\`\n${clipText}\n\`\`\`\n`;
-                        filesFound++;
-                        continue;
-                    }
-
-                    // 3. Find best matching file with multiple strategies
-
-                    // Find best matching file with multiple strategies
-                    let file = files.find(f => {
-                        const relativePath = vscode.workspace.asRelativePath(f).toLowerCase();
-                        const fsPath = f.fsPath.toLowerCase();
-                        const baseName = relativePath.split('/').pop() || '';
-
-                        if (relativePath === lowerFilename) return true;
-                        if (relativePath.endsWith(lowerFilename)) return true;
-                        if (fsPath.endsWith(lowerFilename)) return true;
-                        if (baseName === lowerFilename) return true;
-                        if (relativePath.includes(lowerFilename)) return true;
-
-                        return false;
-                    });
-
-                    if (file) {
-                        try {
-                            const content = await vscode.workspace.fs.readFile(file);
-                            const textContent = new TextDecoder().decode(content);
-                            const relativePath = vscode.workspace.asRelativePath(file);
-                            const ext = relativePath.split('.').pop() || 'text';
-
-                            // Use ContextManager for smart extraction
-                            const contextItem = this._contextManager.addFileWithQuery(
-                                relativePath,
-                                textContent,
-                                ext,
-                                message
-                            );
-
-                            const extractedNote = contextItem.extracted
-                                ? ` (smart extracted from ${contextItem.fullSize} chars)`
-                                : '';
-                            contextBlock += `File: ${relativePath}${extractedNote}\n\`\`\`${ext}\n${contextItem.content}\n\`\`\`\n\n`;
-                            filesFound++;
-                        } catch (e) {
-                            console.error('Error reading context file:', file.fsPath, e);
-                            contextBlock += `File: ${filename} (Error reading file)\n\n`;
-                        }
-                    } else {
-                        contextBlock += `File: ${filename} (Not found in workspace)\n\n`;
-                    }
-                }
-
-                if (filesFound > 0) {
-                    contextMsg += contextBlock;
-                }
-            } else if (vscode.workspace.getConfiguration('byteAI').get<boolean>('autoContext') && !isFollowUp) {
-                this._view?.webview.postMessage({
-                    type: 'agentStatus',
-                    phase: 'Context',
-                    message: 'Gathering relevant project context'
-                });
-                const editor = vscode.window.activeTextEditor;
-                const activeFilePath = editor ? vscode.workspace.asRelativePath(editor.document.uri) : undefined;
-
-                const isBroadQuery = message.length < 50 || message.includes('project') || message.includes('files') || message.startsWith('/');
-                if (isBroadQuery) {
-                    this._view?.webview.postMessage({
-                        type: 'agentStatus',
-                        phase: 'Project map',
-                        message: 'Building project structure overview'
-                    });
-                    const projectMap = await this._searchAgent.getProjectMap();
-                    contextMsg += projectMap;
-                }
-
-                this._view?.webview.postMessage({
-                    type: 'agentStatus',
-                    phase: 'Searching files',
-                    message: 'Searching files and code sections relevant to your request'
-                });
-
-                const searchContextRaw = await this._searchAgent.search(message, activeFilePath);
-                let searchContext = searchContextRaw;
-                if (searchContextRaw) {
-                    const debugEnabled = vscode.workspace.getConfiguration('byteAI').get<boolean>('debugSearchAgent');
-                    if (debugEnabled) {
-                        const startToken = '--- SEARCH DEBUG ---';
-                        const endToken = '--- END SEARCH DEBUG ---';
-                        const debugStart = searchContextRaw.indexOf(startToken);
-                        const debugEnd = searchContextRaw.indexOf(endToken);
-                        if (debugStart !== -1 && debugEnd !== -1 && debugEnd > debugStart) {
-                            const debugBlock = searchContextRaw.substring(debugStart, debugEnd + endToken.length);
+                        // Send plan update if available
+                        if (status.plan) {
                             this._view?.webview.postMessage({
-                                type: 'agentDebugText',
-                                value: debugBlock
+                                type: 'planUpdate',
+                                plan: status.plan,
+                                activeTaskId: status.activeTaskId
                             });
-                            searchContext = searchContextRaw.slice(0, debugStart) +
-                                searchContextRaw.slice(debugEnd + endToken.length);
                         }
                     }
-                }
+                );
 
-                if (searchContext) {
-                    contextMsg += searchContext;
-                } else if (editor) {
-                    // Fallback: include active file if no search results
-                    const document = editor.document;
-                    const fileName = vscode.workspace.asRelativePath(document.uri);
-                    const language = document.languageId;
-                    const content = document.getText();
+                pipelineContext = pipelineOutput.context;
+                pipelineResults = pipelineOutput.results;
 
-                    const contextItem = this._contextManager.addFileWithQuery(
-                        fileName,
-                        content,
-                        language,
-                        message
-                    );
+                contextMsg += pipelineContext;
 
-                    const extractedNote = contextItem.extracted
-                        ? ` (smart extracted from ${contextItem.fullSize} chars)`
-                        : '';
-                    let contextBlock = "\n\n--- CURRENT FILE CONTEXT ---\n";
-                    contextBlock += `**Active File:** ${fileName} (${language})${extractedNote}\n`;
-                    contextBlock += `\`\`\`${language}\n${contextItem.content}\n\`\`\`\n`;
-                    contextMsg += contextBlock;
-                }
+            } else {
+                // Fallback to simple search if confidence is low
+                this._view?.webview.postMessage({
+                    type: 'agentStatus',
+                    phase: 'Searching',
+                    message: 'Low confidence in detailed plan - falling back to broad search'
+                });
+
+                const projectMap = await this._searchAgent.getProjectMap();
+                contextMsg += projectMap;
+                const searchContext = await this._searchAgent.search(message, activeFilePath);
+                if (searchContext) contextMsg += searchContext;
             }
 
             this._contextManager.addConversationTurn('user', message);
@@ -706,7 +641,6 @@ export class ChatPanel implements vscode.WebviewViewProvider {
 
             this._history.push({ role: 'assistant', text: fullResponse });
             this._contextManager.addConversationTurn('assistant', fullResponse);
-            this._view.webview.postMessage({ type: 'addResponse', value: fullResponse, isStream: false });
             await this.saveCurrentSession();
 
             // === AGENTIC EXECUTION ===
@@ -715,7 +649,13 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             const instructions = this._agentOrchestrator.parseAIResponse(fullResponse);
             console.log('[ByteCoder] Found instructions:', instructions.length);
 
-            if (instructions.length > 0) {
+            // If we have instructions, we are NOT done yet. 
+            // Send isStream: true to keep the UI in generating state.
+            // Otherwise, send isStream: false to finish.
+            const hasInstructions = instructions.length > 0;
+            this._view.webview.postMessage({ type: 'addResponse', value: fullResponse, isStream: hasInstructions });
+
+            if (hasInstructions) {
                 // Log what we found
                 console.log('[ByteCoder] Instructions details:', JSON.stringify(instructions, null, 2));
 
@@ -758,25 +698,30 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     const updatedResponse = fullResponse + summaryMsg;
                     this._history[this._history.length - 1].text = updatedResponse;
                     this._view?.webview.postMessage({ type: 'addResponse', value: updatedResponse, isStream: false });
-                    await this.saveCurrentSession();
 
+                    await this.saveCurrentSession();
                     vscode.window.showInformationMessage(`✅ Created ${result.actions.filter(a => a.success).length} file(s)`);
                 } else {
                     // Not safe or auto-execute disabled - ask user
+                    // End stream so user can see buttons (handled by promptForExecution)
+                    this._view?.webview.postMessage({ type: 'addResponse', value: fullResponse, isStream: false });
                     await this.promptForExecution(instructions, fullResponse);
                 }
             } else {
                 console.log('[ByteCoder] No executable actions found in response');
+                // No instructions, so ensure stream prevents processing
+                this._view?.webview.postMessage({ type: 'addResponse', value: fullResponse, isStream: false });
             }
 
             this._view?.webview.postMessage({ type: 'agentStatusDone' });
 
         } catch (error: any) {
             console.error('Chat Error:', error);
-            this._view.webview.postMessage({ type: 'error', value: error.message || "Unknown error" });
+            this._view?.webview.postMessage({ type: 'error', value: error.message || "Unknown error" });
             this._view?.webview.postMessage({ type: 'agentStatusDone' });
         }
     }
+
 
     private async handleNewChat() {
         this.clearChat();
@@ -947,10 +892,19 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     }
 
     private async handleSaveSettings(settings: any) {
-        const config = vscode.workspace.getConfiguration('byteAI');
-        await config.update('customInstructions', settings.customInstructions, vscode.ConfigurationTarget.Global);
-        await config.update('autoContext', settings.autoContext, vscode.ConfigurationTarget.Global);
-        await this.handleGetSettings();
+        try {
+            const config = vscode.workspace.getConfiguration('byteAI');
+            await config.update('customInstructions', settings.customInstructions, vscode.ConfigurationTarget.Global);
+            await config.update('autoContext', settings.autoContext, vscode.ConfigurationTarget.Global);
+            
+            // Refresh settings to ensure UI is in sync
+            await this.handleGetSettings();
+            
+            vscode.window.showInformationMessage('Byte AI Settings saved successfully');
+        } catch (error) {
+            console.error('Error saving settings:', error);
+            vscode.window.showErrorMessage('Failed to save settings. Please check the output console for details.');
+        }
     }
 
     /**

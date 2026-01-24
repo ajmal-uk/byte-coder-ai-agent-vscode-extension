@@ -102,7 +102,7 @@ export class ContextSearchAgent extends BaseAgent<ContextSearchInput, ContextSea
                 memories.push({
                     type: 'file_history',
                     date: new Date(),
-                    summary: `Session: ${key}`,
+                    summary: `Session: \`${key}\``,
                     relevance,
                     data: value
                 });

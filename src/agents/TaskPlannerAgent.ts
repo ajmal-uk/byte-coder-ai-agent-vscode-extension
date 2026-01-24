@@ -64,6 +64,67 @@ export class TaskPlannerAgent extends BaseAgent<TaskPlannerInput, TaskPlannerRes
      * Generate task graph from input
      */
     private generateTaskGraph(input: TaskPlannerInput): TaskNode[] {
+        // If we have file structure defined, it's likely a scaffolding task
+        if (input.fileStructure && input.fileStructure.length > 0) {
+            return this.generateScaffoldTasks(input);
+        }
+        
+        // Otherwise, generate a generic execution plan based on the query
+        return this.generateGenericTasks(input);
+    }
+
+    /**
+     * Generate generic tasks for non-scaffold requests
+     */
+    private generateGenericTasks(input: TaskPlannerInput): TaskNode[] {
+        const tasks: TaskNode[] = [];
+        const query = input.query.toLowerCase();
+        
+        // 1. Analysis Phase
+        tasks.push(this.createTask(
+            'Analyze Context & Requirements',
+            undefined,
+            [],
+            undefined
+        ));
+
+        // 2. Planning Phase
+        tasks.push(this.createTask(
+            'Plan Implementation Details',
+            undefined,
+            [tasks[0].id],
+            undefined
+        ));
+
+        // 3. Execution Phase
+        // Customize based on query keywords
+        let execDesc = 'Execute Changes';
+        if (query.includes('fix')) execDesc = 'Apply Fixes';
+        else if (query.includes('refactor')) execDesc = 'Perform Refactoring';
+        else if (query.includes('test')) execDesc = 'Implement Tests';
+        
+        tasks.push(this.createTask(
+            execDesc,
+            undefined,
+            [tasks[1].id],
+            undefined
+        ));
+
+        // 4. Validation Phase
+        tasks.push(this.createTask(
+            'Verify & Validate',
+            undefined,
+            [tasks[2].id],
+            'npm test' // Default validation
+        ));
+
+        return tasks;
+    }
+
+    /**
+     * Generate tasks for project scaffolding
+     */
+    private generateScaffoldTasks(input: TaskPlannerInput): TaskNode[] {
         const tasks: TaskNode[] = [];
 
         // 1. Project setup tasks
@@ -167,7 +228,7 @@ export class TaskPlannerAgent extends BaseAgent<TaskPlannerInput, TaskPlannerRes
             'Setup testing framework',
             undefined,
             [tasks[1].id],
-            'npm run test'
+            'npm install -D jest ts-jest @types/jest'
         ));
 
         tasks.push(this.createTask(

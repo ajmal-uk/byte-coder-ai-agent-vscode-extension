@@ -1,4 +1,3 @@
-
 import * as vscode from 'vscode';
 
 export class ChatViewHtml {
@@ -520,6 +519,52 @@ export class ChatViewHtml {
                     display: flex; flex-direction: column;
                 }
                 #session-drawer.open { width: 100%; }
+
+                /* Plan Drawer */
+                #plan-drawer {
+                    position: absolute; top: 0; right: 0; bottom: 0; width: 0;
+                    background: var(--bg-app);
+                    transition: width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+                    overflow: hidden; z-index: 100;
+                    display: flex; flex-direction: column;
+                    border-left: 1px solid var(--border);
+                    box-shadow: -5px 0 20px rgba(0,0,0,0.1);
+                }
+                #plan-drawer.open { width: 350px; }
+                @media (max-width: 600px) { #plan-drawer.open { width: 100%; } }
+
+                .plan-content { flex: 1; overflow-y: auto; padding: 16px; }
+
+                .plan-item {
+                    display: flex; align-items: flex-start; gap: 12px;
+                    padding: 12px; border-radius: 8px;
+                    border: 1px solid var(--border);
+                    margin-bottom: 8px; background: var(--bg-app);
+                    transition: all 0.2s;
+                }
+                .plan-item:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+                
+                .plan-status-icon {
+                    width: 20px; height: 20px; flex-shrink: 0;
+                    display: flex; align-items: center; justify-content: center;
+                    border-radius: 50%; font-size: 12px;
+                }
+                
+                .plan-item.completed { border-color: #22c55e; background: rgba(34, 197, 94, 0.05); }
+                .plan-item.completed .plan-status-icon { background: #22c55e; color: white; }
+                
+                .plan-item.in_progress { border-color: var(--accent); background: rgba(59, 130, 246, 0.05); }
+                .plan-item.in_progress .plan-status-icon { background: var(--accent); color: white; animation: pulse 2s infinite; }
+                
+                .plan-item.pending { border-color: var(--border); opacity: 0.7; }
+                .plan-item.pending .plan-status-icon { background: var(--text-secondary); color: white; }
+                
+                .plan-item.failed { border-color: #ef4444; background: rgba(239, 68, 68, 0.05); }
+                .plan-item.failed .plan-status-icon { background: #ef4444; color: white; }
+
+                .plan-details { flex: 1; font-size: 13px; }
+                .plan-title { font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+                .plan-desc { color: var(--text-secondary); font-size: 12px; line-height: 1.4; }
                 
                 .drawer-header {
                     padding: 0; border-bottom: 1px solid var(--border);
@@ -892,7 +937,6 @@ export class ChatViewHtml {
                     text-decoration: underline;
                     box-shadow: 0 2px 8px var(--tag-file-shadow);
                 }
-
             </style>
         </head>
         <body>
@@ -922,6 +966,18 @@ export class ChatViewHtml {
                 <div class="session-list" id="sessionList"></div>
                 <div class="drawer-footer">
                     <button class="btn-clear" onclick="clearAllSessions()">${icons.trash} Clear All</button>
+                </div>
+            </div>
+
+            <div id="plan-drawer">
+                <div class="drawer-header">
+                    <div class="drawer-top-bar">
+                        <span class="drawer-title">Implementation Plan</span>
+                        <button class="btn-icon" onclick="togglePlan()" title="Close">×</button>
+                    </div>
+                </div>
+                <div class="plan-content" id="planContent">
+                    <div style="padding: 20px; text-align: center; color: var(--text-secondary);">No active plan</div>
                 </div>
             </div>
 
@@ -1067,6 +1123,7 @@ export class ChatViewHtml {
             </div>
 
             <div id="toast-container"></div>
+
             <script>
                 const vscode = acquireVsCodeApi();
                 const initialState = vscode.getState() || {};
@@ -1088,6 +1145,8 @@ export class ChatViewHtml {
                 const stopBtn = document.getElementById('stopBtn');
                 const sessionDrawer = document.getElementById('session-drawer');
                 const sessionList = document.getElementById('sessionList');
+                const planDrawer = document.getElementById('plan-drawer');
+                const planContent = document.getElementById('planContent');
                 const commandPopup = document.getElementById('commandPopup');
                 const filePopup = document.getElementById('filePopup');
                 const emptyState = document.getElementById('emptyState');
@@ -1095,6 +1154,53 @@ export class ChatViewHtml {
                 // State
                 let selectedFiles = [];
                 let selectedCommands = [];
+
+                // Plan Functions
+                window.togglePlan = () => {
+                    if (planDrawer.style.width === '350px' || planDrawer.classList.contains('open')) {
+                        planDrawer.classList.remove('open');
+                        planDrawer.style.width = '0';
+                    } else {
+                        planDrawer.classList.add('open');
+                        planDrawer.style.width = '350px';
+                        // Close other drawers
+                        if (sessionDrawer) {
+                            sessionDrawer.classList.remove('open');
+                            sessionDrawer.style.width = '0';
+                        }
+                    }
+                };
+
+                window.renderPlan = (plan, activeTaskId) => {
+                    if (!plan || plan.length === 0) {
+                        planContent.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">No active plan</div>';
+                        return;
+                    }
+
+                    planContent.innerHTML = plan.map(task => {
+                        let statusClass = task.status || 'pending';
+                        if (task.id === activeTaskId) statusClass = 'in_progress';
+                        
+                        let icon = '○';
+                        if (statusClass === 'completed') icon = '✓';
+                        if (statusClass === 'in_progress') icon = '↻';
+                        if (statusClass === 'failed') icon = '✕';
+
+                        return \`
+                            <div class="plan-item \${statusClass}" id="\${task.id}">
+                                <div class="plan-status-icon">\${icon}</div>
+                                <div class="plan-details">
+                                    <div class="plan-title">\${task.description || 'Untitled Task'}</div>
+                                    \${task.validationCommand ? \`<div class="plan-desc">Validation: \${task.validationCommand}</div>\` : ''}
+                                </div>
+                            </div>
+                        \`;
+                    }).join('');
+                    
+                    // Show plan button if hidden
+                    const planBtn = document.getElementById('planBtn');
+                    if (planBtn) planBtn.style.display = 'flex';
+                };
 
                 // Helper: Open File
                 window.openFile = (path) => {
@@ -1208,7 +1314,7 @@ export class ChatViewHtml {
                 
                 // Inline thinking indicator state
                 let thinkingIndicatorEl = null;
-                
+
                 // Update the highlight overlay with colored @mentions and /commands
                 function updateHighlight() {
                     let text = messageInput.value;
@@ -1394,7 +1500,7 @@ export class ChatViewHtml {
                     
                     persistState();
                 }
-                
+
                 function showTypingIndicator() {
                     // Now uses the thinking indicator
                     showThinkingIndicator();
@@ -1599,8 +1705,6 @@ export class ChatViewHtml {
                             
                             if (!message.isStream) {
                                 isGenerating = false;
-                                currentAssistantMessageDiv = null;
-                                currentAssistantMessageIndex = null;
                                 updateUIState();
                                 persistState();
                             }
@@ -1686,6 +1790,10 @@ export class ChatViewHtml {
 
                         case 'fileList':
                            renderFiles(message.files);
+                           break;
+
+                        case 'planUpdate':
+                           renderPlan(message.plan, message.activeTaskId);
                            break;
 
                         case 'updateSettings':
@@ -1814,6 +1922,8 @@ export class ChatViewHtml {
                         currentAssistantMessageIndex = currentIdx;
                         enhanceCodeBlocks(div);
                     }
+
+                    processFileTags(div);
 
                     // Remove empty state dynamically
                     const es = document.getElementById('emptyState');
@@ -1944,7 +2054,7 @@ export class ChatViewHtml {
                             tag.onclick = (e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                vscode.postMessage({ type: 'openFile', path: text });
+                                vscode.postMessage({ type: 'openFile', value: text });
                             };
                             
                             codeEl.replaceWith(tag);
@@ -1971,7 +2081,7 @@ export class ChatViewHtml {
                         const html = node.textContent.replace(
                             /\\[\\[file:([^\\]]+)\\]\\]/g,
                             (match, filePath) => {
-                                return \`<span class="file-tag inline-file-tag" onclick="vscode.postMessage({type:'openFile',path:'\${filePath}'})"><span class="tag-icon">📄</span><span class="tag-text">\${filePath.split('/').pop()}</span></span>\`;
+                                return \`<span class="file-tag inline-file-tag" onclick="vscode.postMessage({type:'openFile',value:'\${filePath}'})"><span class="tag-icon">📄</span><span class="tag-text">\${filePath.split('/').pop()}</span></span>\`;
                             }
                         );
                         if (html !== node.textContent) {

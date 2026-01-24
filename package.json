@@ -32,6 +32,12 @@
     "engines": {
         "vscode": "^1.85.0"
     },
+    "dependencies": {
+        "marked": "^4.3.0",
+        "highlight.js": "^11.7.0",
+        "uuid": "^9.0.1",
+        "ws": "^8.16.0"
+    },
     "categories": [
         "AI",
         "Programming Languages",
@@ -281,17 +287,18 @@
     "scripts": {
         "vscode:prepublish": "tsc -p ./",
         "compile": "tsc -p ./",
-        "watch": "tsc -watch -p ./"
+        "watch": "tsc -watch -p ./",
+        "lint": "eslint src --ext ts",
+        "test": "node ./out/tests/agent-tests.js"
     },
     "devDependencies": {
         "@types/node": "18.x",
         "@types/uuid": "^10.0.0",
         "@types/vscode": "^1.85.0",
         "@types/ws": "^8.18.1",
+        "@typescript-eslint/eslint-plugin": "^6.15.0",
+        "@typescript-eslint/parser": "^6.15.0",
+        "eslint": "^8.56.0",
         "typescript": "^5.3.3"
-    },
-    "dependencies": {
-        "uuid": "^9.0.1",
-        "ws": "^8.16.0"
     }
 }

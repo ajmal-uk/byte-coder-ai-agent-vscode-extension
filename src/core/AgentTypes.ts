@@ -48,6 +48,17 @@ export interface ManagerDecision {
     userMessage?: string;
 }
 
+export interface PipelineStatus {
+    phase: string;
+    currentAgent: string;
+    progress: number;  // 0-100
+    message: string;
+    isComplete: boolean;
+    hasError: boolean;
+    plan?: TaskNode[]; // Optional plan update
+    activeTaskId?: string; // Currently executing task ID
+}
+
 // ===== CHECKPOINT TYPES =====
 
 export interface Checkpoint {

@@ -138,7 +138,7 @@ export class SearchAgent {
             if (!result) continue;
 
             fileIndex++;
-            lines.push(`### [${fileIndex}] ${relativePath}`);
+            lines.push(`### [${fileIndex}] \`${relativePath}\``);
             lines.push(`Score: ${result.overallScore.toFixed(1)} | Mode: ${result.extractionMode} | Lines: ${result.summary.totalLines}`);
 
             if (result.summary.topMatches.length > 0) {

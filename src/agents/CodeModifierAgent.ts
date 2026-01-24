@@ -66,9 +66,13 @@ export class CodeModifierAgent extends BaseAgent<CodeModifierInput, CodeModifier
             };
 
             const confidence = successCount / input.modifications.length;
+            const successResults = results.filter(r => r.success);
+            const keyFiles = successResults.slice(0, 3).map(r => `\`${r.file}\``).join(', ');
+            const remaining = Math.max(0, successResults.length - 3);
+            const fileSummary = remaining > 0 ? `${keyFiles} (+${remaining} more)` : keyFiles;
 
             return this.createOutput('success', result, confidence, startTime, {
-                reasoning: `Modified ${successCount}/${input.modifications.length} files, ${totalLines} lines changed`
+                reasoning: `Modified ${successCount}/${input.modifications.length} files: ${fileSummary}. (${totalLines} lines changed)`
             });
 
         } catch (error) {

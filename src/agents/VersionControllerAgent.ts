@@ -87,6 +87,39 @@ export class VersionControllerAgent extends BaseAgent<VersionControllerInput, Ve
     }
 
     /**
+     * Delete all checkpoints
+     */
+    async deleteAllCheckpoints(): Promise<VersionControllerResult> {
+        try {
+            // Clear in-memory maps
+            this.checkpoints.clear();
+            this.fileSnapshots.clear();
+
+            // Clear disk storage
+            if (this.checkpointDir && fs.existsSync(this.checkpointDir)) {
+                fs.rmSync(this.checkpointDir, { recursive: true, force: true });
+                // Re-create empty directory
+                this.initCheckpointDir();
+            }
+
+            // Clear extension state
+            if (this.context) {
+                await this.context.workspaceState.update('byteAI.checkpoints', []);
+            }
+
+            return {
+                success: true,
+                message: 'All checkpoints deleted successfully'
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: `Failed to delete checkpoints: ${error}`
+            };
+        }
+    }
+
+    /**
      * Create a new checkpoint
      */
     private async createCheckpoint(files: string[], description?: string): Promise<VersionControllerResult> {
@@ -282,6 +315,7 @@ export class VersionControllerAgent extends BaseAgent<VersionControllerInput, Ve
         }
     }
 
+
     /**
      * Generate a checkpoint ID
      */
@@ -315,9 +349,6 @@ export class VersionControllerAgent extends BaseAgent<VersionControllerInput, Ve
         )[0];
     }
 
-    /**
-     * Auto-cleanup old checkpoints (keep last N)
-     */
     async cleanup(keepCount: number = 10): Promise<void> {
         const checkpoints = Array.from(this.checkpoints.entries())
             .sort((a, b) => new Date(b[1].timestamp).getTime() - new Date(a[1].timestamp).getTime());

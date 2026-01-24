@@ -106,8 +106,12 @@ export class CodePlannerAgent extends BaseAgent<CodePlannerInput, CodePlannerRes
                 folderPurposes
             };
 
+            const keyFiles = fileStructure.slice(0, 3).map(f => `\`${f}\``).join(', ');
+            const remainingCount = Math.max(0, fileStructure.length - 3);
+            const fileSummary = remainingCount > 0 ? `${keyFiles} and ${remainingCount} others` : keyFiles;
+
             return this.createOutput('success', result, 0.85, startTime, {
-                reasoning: `Generated ${fileStructure.length} files/folders, ${interfaces.length} interfaces`
+                reasoning: `Generated ${fileStructure.length} files/folders including ${fileSummary}. Defined ${interfaces.length} interfaces.`
             });
 
         } catch (error) {

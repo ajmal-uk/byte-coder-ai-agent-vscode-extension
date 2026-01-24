@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 export interface MemoryEntry {
     id: string;
     type: 'fact' | 'preference' | 'project_info' | 'user_info' | 'code_pattern';
-    key: string;           // e.g., "user_name", "preferred_language"
+    key: string;
     value: string;         // e.g., "John", "TypeScript"
     source: string;        // Session ID where learned
     timestamp: number;
@@ -101,12 +101,28 @@ export class LongTermMemory {
             confidence: 0.95
         },
         // Company/organization
+        // Relationships
         {
-            regex: /(?:i work (?:at|for)|employed (?:at|by)|my company is)\s+([A-Z][\w\s]+?)(?:\.|,|\s+and|\s+as|$)/gi,
+            regex: /(?:my|the) (?:girlfriend|boyfriend|partner|spouse|wife|husband|friend)(?:'s)? (?:name is|is called|is named)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/gi,
             type: 'user_info',
-            keyExtractor: () => 'company',
+            keyExtractor: () => 'relationship_name',
+            valueExtractor: (m) => m[1].trim(),
+            confidence: 0.9
+        },
+        {
+            regex: /(?:girlfriend|boyfriend|partner|spouse|wife|husband|friend) is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/gi,
+            type: 'user_info',
+            keyExtractor: () => 'relationship_name',
             valueExtractor: (m) => m[1].trim(),
             confidence: 0.85
+        },
+        // General Definitions / Facts
+        {
+            regex: /(?:the) (?:api key|token|password|secret|endpoint|url) (?:is|for) (.+)/gi,
+            type: 'fact',
+            keyExtractor: (m) => 'defined_fact',
+            valueExtractor: (m) => m[1].trim(),
+            confidence: 0.9
         }
     ];
 
@@ -150,17 +166,29 @@ export class LongTermMemory {
     async storeMemory(entry: MemoryEntry): Promise<void> {
         const memories = this.getMemories();
 
-        // Check for existing entry with same key
-        const existingIdx = memories.findIndex(m => m.key === entry.key);
+        // Check for existing entry with same key AND similar value (fuzzy check could occur here, but rigid for now)
+        // Or check if we already have a memory for "relationship_name" that contradicts? 
+        // For now, simpler: key + value matching logic or just key. 
+        // We often want multiple facts. Let's rely on unique IDs unless key is unique-by-definition (like user_name).
 
+        const existingIdx = memories.findIndex(m => m.key === entry.key && m.value === entry.value);
         if (existingIdx !== -1) {
-            const existing = memories[existingIdx];
-            // Update if new entry has higher confidence or is more recent
-            if (entry.confidence >= existing.confidence) {
-                memories[existingIdx] = entry;
-            }
+            // Already known, just update timestamp
+            memories[existingIdx].timestamp = Date.now();
+            memories[existingIdx].confidence = Math.max(memories[existingIdx].confidence, entry.confidence);
         } else {
-            memories.push(entry);
+            // Check if we have a conflicting singleton (like user_name)
+            const singletonKeys = ['user_name', 'user_email'];
+            if (singletonKeys.includes(entry.key)) {
+                const singletonIdx = memories.findIndex(m => m.key === entry.key);
+                if (singletonIdx !== -1) {
+                    memories[singletonIdx] = entry; // Overwrite
+                } else {
+                    memories.push(entry);
+                }
+            } else {
+                memories.push(entry);
+            }
         }
 
         // Trim to max size (remove oldest, lowest confidence)
@@ -198,7 +226,8 @@ export class LongTermMemory {
             { regex: /what (?:do i|language|tool)/i, keys: ['preferred_tool', 'coding_language', 'tool_preference'] },
             { regex: /what(?:'s| is) (?:my |the )?project/i, keys: ['project_name', 'current_project'] },
             { regex: /(?:my |what(?:'s| is) my )?email/i, keys: ['user_email'] },
-            { regex: /where do i work|my company/i, keys: ['company'] }
+            { regex: /where do i work|my company/i, keys: ['company'] },
+            { regex: /(?:girlfriend|boyfriend|partner|friend) name/i, keys: ['relationship_name'] }
         ];
 
         let targetKeys: string[] = [];
@@ -220,25 +249,30 @@ export class LongTermMemory {
 
             // Term matches
             const memoryText = `${memory.key} ${memory.value} ${memory.type}`.toLowerCase();
+            let matches = 0;
             for (const term of queryTerms) {
                 if (memoryText.includes(term)) {
-                    score += 10;
+                    score += 15; // Increased weight per term
+                    matches++;
                 }
             }
+
+            // Boost if many terms match
+            if (matches >= queryTerms.length && queryTerms.length > 0) score += 30;
 
             // Recency boost
             const daysSince = (Date.now() - memory.timestamp) / (1000 * 60 * 60 * 24);
             score += Math.max(0, 5 - daysSince * 0.1);
 
             // Confidence boost
-            score += memory.confidence * 5;
+            score += memory.confidence * 10;
 
             return { memory, score };
         });
 
         // Filter and sort
         const relevant = scored
-            .filter(s => s.score > 5)
+            .filter(s => s.score > 20) // Raised threshold slightly
             .sort((a, b) => b.score - a.score)
             .slice(0, 10)
             .map(s => s.memory);
@@ -266,22 +300,40 @@ export class LongTermMemory {
         const queryTerms = this.extractTerms(query);
         const results: { content: string; score: number; sessionTitle: string }[] = [];
 
+        // Pre-compute lower case query for phrase matching
+        const queryLower = query.toLowerCase();
+
         for (const session of sessions) {
             if (!session.history) continue;
 
             for (const msg of session.history) {
+                // Skip assistant messages if short/generic, but keep user messages and long assistant explanations
+                if (msg.role === 'assistant' && msg.text.length < 50) continue;
+
                 const content = msg.text?.toLowerCase() || '';
                 let score = 0;
+                let matchedTerms = 0;
 
                 for (const term of queryTerms) {
                     if (content.includes(term)) {
-                        score += 1;
+                        score += 10;
+                        matchedTerms++;
                     }
                 }
 
-                if (score > 0) {
+                // Boost for multiple term matches (AND logic preference)
+                if (matchedTerms > 0) {
+                    score += Math.pow(matchedTerms, 2) * 5;
+                }
+
+                // Boost for exact phrase match
+                if (queryTerms.length > 1 && content.includes(queryLower)) {
+                    score += 100;
+                }
+
+                if (score > 15) { // Minimum threshold
                     results.push({
-                        content: msg.text?.slice(0, 300) || '',
+                        content: msg.text?.slice(0, 400) + (msg.text.length > 400 ? '...' : '') || '',
                         score,
                         sessionTitle: session.title || 'Untitled'
                     });
@@ -290,30 +342,44 @@ export class LongTermMemory {
         }
 
         // Sort by score and return top matches
-        return results
-            .sort((a, b) => b.score - a.score)
-            .slice(0, 5)
-            .map(r => `[From "${r.sessionTitle}"]: ${r.content}`);
+        // Filter duplicates (by content similarity) to avoid noise
+        const uniqueResults: { content: string; score: number; sessionTitle: string }[] = [];
+        const seenContent = new Set<string>();
+
+        results.sort((a, b) => b.score - a.score);
+
+        for (const r of results) {
+            const signature = r.content.slice(0, 50); // simplified dedup
+            if (!seenContent.has(signature)) {
+                seenContent.add(signature);
+                uniqueResults.push(r);
+            }
+            if (uniqueResults.length >= 5) break;
+        }
+
+        return uniqueResults.map(r => `[From "${r.sessionTitle}"]: ${r.content}`);
     }
 
     /**
      * Get relevant context for a query (combines memories + session search)
      */
     async getRelevantContext(query: string): Promise<string> {
-        const memoryResult = this.searchMemories(query);
+        let combinedContext = "";
 
-        // If we have good memory matches, return those
+        // 1. Structured Memories (Regex Patterns)
+        const memoryResult = this.searchMemories(query);
         if (memoryResult.entries.length > 0) {
-            return memoryResult.contextString;
+            combinedContext += memoryResult.contextString + "\n";
         }
 
-        // Otherwise, search past sessions
+        // 2. Unstructured History Search (Deep Search)
+        // Always run this to catch things that patterns miss
         const sessionMatches = await this.searchAllSessions(query);
         if (sessionMatches.length > 0) {
-            return `\n--- RELEVANT PAST CONVERSATIONS ---\n${sessionMatches.join('\n\n')}\n--- END ---\n`;
+            combinedContext += `\n--- RELEVANT PAST CONVERSATIONS ---\n${sessionMatches.join('\n\n')}\n--- END ---\n`;
         }
 
-        return '';
+        return combinedContext;
     }
 
     /**
@@ -357,16 +423,10 @@ export class LongTermMemory {
             .filter(w => w.length > 2 && !stopWords.has(w));
     }
 
-    /**
-     * Clear all memories (for testing/reset)
-     */
     async clearMemories(): Promise<void> {
         await this.context.globalState.update(LongTermMemory.STORAGE_KEY, []);
     }
 
-    /**
-     * Get memory stats
-     */
     getStats(): { total: number; byType: Record<string, number> } {
         const memories = this.getMemories();
         const byType: Record<string, number> = {};

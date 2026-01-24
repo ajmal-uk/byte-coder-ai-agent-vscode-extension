@@ -9,14 +9,27 @@ import {
     AgentOutput,
     ManagerDecision,
     ExecutionResult,
-    Checkpoint
+    Checkpoint,
+    TaskNode,
+    PipelineStatus
 } from './AgentTypes';
 
-// Agent type imports (we'll import actual agents later)
+// Agent type imports
 import { IntentAnalyzer, SearchIntent } from '../agents/IntentAnalyzer';
 import { FileFinderAgent, FileMatch } from '../agents/FileFinderAgent';
-import { CodeExtractorAgent, ExtractionResult } from '../agents/CodeExtractorAgent';
-import { RelevanceScorerAgent, ScoredResult, ScoredChunk } from '../agents/RelevanceScorerAgent';
+import { ContextPlanner, ContextPlan } from '../agents/ContextPlanner';
+import { ContextAnalyzer, AnalyzedContext } from '../agents/ContextAnalyzer';
+import { ContextSearchAgent } from '../agents/ContextSearchAgent';
+import { FilePartSearcherAgent } from '../agents/FilePartSearcherAgent';
+import { ProcessPlannerAgent, ProcessPlannerInput } from '../agents/ProcessPlannerAgent';
+import { CodePlannerAgent } from '../agents/CodePlannerAgent';
+import { TaskPlannerAgent, TaskPlannerResult } from '../agents/TaskPlannerAgent';
+import { VersionControllerAgent } from '../agents/VersionControllerAgent';
+import { CommandGeneratorAgent } from '../agents/CommandGeneratorAgent';
+import { CodeModifierAgent, CodeModifierInput } from '../agents/CodeModifierAgent';
+import { CodeGeneratorAgent } from '../agents/CodeGeneratorAgent';
+import { ExecutorAgent } from '../agents/ExecutorAgent';
+import { DocWriterAgent } from '../agents/DocWriterAgent';
 
 export interface PipelineContext {
     query: string;
@@ -26,15 +39,7 @@ export interface PipelineContext {
     results: Map<string, AgentOutput>;
     checkpoints: Checkpoint[];
     startTime: number;
-}
-
-export interface PipelineStatus {
-    phase: string;
-    currentAgent: string;
-    progress: number;  // 0-100
-    message: string;
-    isComplete: boolean;
-    hasError: boolean;
+    currentPlan?: TaskNode[];
 }
 
 type StatusCallback = (status: PipelineStatus) => void;
@@ -42,24 +47,57 @@ type StatusCallback = (status: PipelineStatus) => void;
 export class PipelineEngine {
     private intentAnalyzer: IntentAnalyzer;
     private fileFinder: FileFinderAgent;
-    private codeExtractor: CodeExtractorAgent;
-    private relevanceScorer: RelevanceScorerAgent;
+    private contextPlanner: ContextPlanner;
+    private contextAnalyzer: ContextAnalyzer;
+    private contextSearch: ContextSearchAgent;
+    private filePartSearcher: FilePartSearcherAgent;
+    private processPlanner: ProcessPlannerAgent;
+    private codePlanner: CodePlannerAgent;
+    private taskPlanner: TaskPlannerAgent;
+    private versionController: VersionControllerAgent;
+    private commandGenerator: CommandGeneratorAgent;
+    private codeGenerator: CodeGeneratorAgent;
+    private codeModifier: CodeModifierAgent;
+    private executor: ExecutorAgent;
+    private docWriter: DocWriterAgent;
 
     // Agent registry for dynamic dispatch
     private agents: Map<string, any> = new Map();
 
     constructor() {
-        // Initialize existing agents
+        // Initialize agents
         this.intentAnalyzer = new IntentAnalyzer();
         this.fileFinder = new FileFinderAgent();
-        this.codeExtractor = new CodeExtractorAgent();
-        this.relevanceScorer = new RelevanceScorerAgent();
+        this.contextPlanner = new ContextPlanner();
+        this.contextAnalyzer = new ContextAnalyzer();
+        this.contextSearch = new ContextSearchAgent();
+        this.filePartSearcher = new FilePartSearcherAgent();
+        this.processPlanner = new ProcessPlannerAgent();
+        this.codePlanner = new CodePlannerAgent();
+        this.taskPlanner = new TaskPlannerAgent();
+        this.versionController = new VersionControllerAgent();
+        this.commandGenerator = new CommandGeneratorAgent();
+        this.codeGenerator = new CodeGeneratorAgent();
+        this.codeModifier = new CodeModifierAgent();
+        this.executor = new ExecutorAgent();
+        this.docWriter = new DocWriterAgent();
 
         // Register agents
         this.agents.set('IntentAnalyzer', this.intentAnalyzer);
         this.agents.set('FileSearch', this.fileFinder);
-        this.agents.set('CodeExtractor', this.codeExtractor);
-        this.agents.set('RelevanceScorer', this.relevanceScorer);
+        this.agents.set('ContextPlanner', this.contextPlanner);
+        this.agents.set('ContextAnalyzer', this.contextAnalyzer);
+        this.agents.set('ContextSearch', this.contextSearch);
+        this.agents.set('FilePartSearcher', this.filePartSearcher);
+        this.agents.set('ProcessPlanner', this.processPlanner);
+        this.agents.set('CodePlanner', this.codePlanner);
+        this.agents.set('TaskPlanner', this.taskPlanner);
+        this.agents.set('VersionController', this.versionController);
+        this.agents.set('CommandGenerator', this.commandGenerator);
+        this.agents.set('CodeGenerator', this.codeGenerator);
+        this.agents.set('CodeModifier', this.codeModifier);
+        this.agents.set('Executor', this.executor);
+        this.agents.set('DocWriter', this.docWriter);
     }
 
     /**
@@ -83,7 +121,8 @@ export class PipelineEngine {
             decision,
             results: new Map(),
             checkpoints: [],
-            startTime: Date.now()
+            startTime: Date.now(),
+            currentPlan: undefined
         };
 
         const totalSteps = decision.pipeline.length;
@@ -93,14 +132,21 @@ export class PipelineEngine {
         const stepGroups = this.groupSteps(decision.pipeline);
 
         for (const group of stepGroups) {
+            // Update plan status to in_progress
+            group.forEach(step => this.updatePlanStatus(context, step.agent, 'in_progress'));
+
             // Emit status
             this.emitStatus(onStatus, {
                 phase: this.getPhaseForAgent(group[0].agent),
                 currentAgent: group.map(s => s.agent).join(', '),
                 progress: Math.round((completedSteps / totalSteps) * 100),
-                message: `Running ${group.length > 1 ? 'parallel' : ''} agents: ${group.map(s => s.agent).join(', ')}`,
+                message: group.length > 1
+                    ? `Running parallel agents: ${group.map(s => s.agent).join(', ')}`
+                    : `Running ${group[0].agent}...`,
                 isComplete: false,
-                hasError: false
+                hasError: false,
+                plan: context.currentPlan,
+                activeTaskId: this.getActiveTaskId(context, group[0].agent)
             });
 
             if (group.length === 1) {
@@ -111,11 +157,96 @@ export class PipelineEngine {
                 await Promise.all(group.map(step => this.executeStep(step, context)));
             }
 
+            // Check for failures
+            const groupResults = group.map(step => context.results.get(step.agent));
+            const failedStep = group.find(step => {
+                const res = context.results.get(step.agent);
+                return res?.status === 'failed';
+            });
+
+            if (failedStep) {
+                const failureRes = context.results.get(failedStep.agent);
+                this.updatePlanStatus(context, failedStep.agent, 'failed');
+                
+                // Emit failure status
+                this.emitStatus(onStatus, {
+                    phase: 'Error',
+                    currentAgent: failedStep.agent,
+                    progress: Math.round((completedSteps / totalSteps) * 100),
+                    message: `Pipeline stopped: ${failureRes?.error?.message || 'Unknown error'}`,
+                    isComplete: false,
+                    hasError: true,
+                    plan: context.currentPlan,
+                    activeTaskId: this.getActiveTaskId(context, failedStep.agent)
+                });
+
+                // Add a dynamic "Fix/Recovery" task if we have a plan
+                if (context.currentPlan) {
+                    const failedTaskIndex = this.getTaskIndexForAgent(failedStep.agent);
+                    if (failedTaskIndex >= 0) {
+                        // Add recovery task
+                        const recoveryTask: TaskNode = {
+                            id: `recovery-${Date.now()}`,
+                            description: `Fix issues from ${failedStep.agent} failure`,
+                            dependencies: [context.currentPlan[failedTaskIndex].id],
+                            status: 'pending'
+                        };
+                        context.currentPlan.splice(failedTaskIndex + 1, 0, recoveryTask);
+                        
+                        // Emit updated plan
+                        this.emitStatus(onStatus, {
+                            phase: 'Planning',
+                            currentAgent: 'TaskPlanner',
+                            progress: Math.round((completedSteps / totalSteps) * 100),
+                            message: 'Added recovery task to plan',
+                            isComplete: false,
+                            hasError: true, // Keep error flag so UI knows
+                            plan: context.currentPlan
+                        });
+                    }
+                }
+
+                // Stop execution for now (until we implement actual recovery agent loop)
+                break; 
+            }
+
+            // Update plan status to completed for successful steps
+            group.forEach(step => this.updatePlanStatus(context, step.agent, 'completed'));
+
+            // Update plan if TaskPlanner was executed
+            if (context.results.has('TaskPlanner')) {
+                const taskResult = context.results.get('TaskPlanner')?.payload as TaskPlannerResult;
+                if (taskResult && taskResult.taskGraph) {
+                    context.currentPlan = taskResult.taskGraph;
+                    
+                    // Retroactively update plan for steps that already ran
+                    this.retroactivePlanUpdate(context);
+
+                    // Emit status with new plan
+                    this.emitStatus(onStatus, {
+                        phase: 'Planning',
+                        currentAgent: 'TaskPlanner',
+                        progress: Math.round(((completedSteps + 1) / totalSteps) * 100),
+                        message: 'Implementation plan generated',
+                        isComplete: false,
+                        hasError: false,
+                        plan: context.currentPlan
+                    });
+                }
+            }
+
             completedSteps += group.length;
         }
 
         // Build final context output
-        const contextOutput = await this.buildContext(context);
+        let contextOutput = '';
+        if (context.results.has('ContextAnalyzer')) {
+            const analysis = context.results.get('ContextAnalyzer')?.payload as AnalyzedContext;
+            contextOutput = analysis ? analysis.summary : await this.buildContext(context);
+        } else {
+            contextOutput = await this.buildContext(context);
+        }
+
         const debugSummary = this.buildDebugSummary(context);
 
         this.emitStatus(onStatus, {
@@ -124,7 +255,8 @@ export class PipelineEngine {
             progress: 100,
             message: 'Pipeline execution complete',
             isComplete: true,
-            hasError: false
+            hasError: false,
+            plan: context.currentPlan
         });
 
         return {
@@ -135,7 +267,7 @@ export class PipelineEngine {
     }
 
     /**
-     * Execute the legacy search pipeline (for backward compatibility)
+     * Smart Context Search (New Architecture)
      */
     async search(
         query: string,
@@ -146,63 +278,90 @@ export class PipelineEngine {
             onStatus?.(status.phase, status.message);
         };
 
-        // 1. Analyze intent
+        const startTime = Date.now();
+
+        // 1. Planning Phase
         this.emitStatus(statusAdapter, {
-            phase: 'Analyzing',
-            currentAgent: 'IntentAnalyzer',
+            phase: 'Planning',
+            currentAgent: 'ContextPlanner',
             progress: 10,
-            message: 'Analyzing query intent...',
+            message: 'Thought: Analyzing query to determine context strategy...',
             isComplete: false,
             hasError: false
         });
 
-        const intent = this.intentAnalyzer.analyze(query);
+        const plan = this.contextPlanner.analyze(query, activeFilePath);
 
-        // 2. Find files
         this.emitStatus(statusAdapter, {
-            phase: 'Searching',
+            phase: 'Discovery',
             currentAgent: 'FileSearch',
             progress: 30,
-            message: `Searching for relevant files...`,
+            message: `Thought: Strategy determined. Searching for files (Scope: ${plan.scope})...`,
             isComplete: false,
             hasError: false
         });
 
-        const fileMatches = await this.fileFinder.find(intent, activeFilePath);
+        // 2. Discovery Phase (Parallel Search)
+        // Convert Plan to Search Intent for legacy FileFinder compatibility for now
+        // Ideally FileFinder should accept the Plan directly
+        const searchIntent: SearchIntent = {
+            keywords: plan.searchTerms,
+            queryType: mapScopeToQueryType(plan.scope),
+            codeTerms: [],
+            filePatterns: plan.filePatterns,
+            complexity: 'simple',
+            mentionedFiles: [],
+            symbols: plan.symbolSearch
+        };
 
-        if (fileMatches.length === 0) {
-            return this.formatNoResults(intent);
+        const fileMatches = await this.fileFinder.find(searchIntent, activeFilePath);
+
+        // Filter by plan's file patterns if strict
+        const filteredFiles = fileMatches.filter(f => {
+            // Simple extension check from plan.filePatterns
+            if (plan.filePatterns.length === 0) return true;
+            return plan.filePatterns.some(pat => f.uri.fsPath.endsWith(pat.replace('*', '')));
+        });
+
+        if (filteredFiles.length === 0) {
+            return "No relevant files found. Please try clarifying your request.";
         }
 
-        // 3. Extract code
+        // 3. Analysis Phase (Parallel Processing)
         this.emitStatus(statusAdapter, {
-            phase: 'Extracting',
-            currentAgent: 'CodeExtractor',
-            progress: 50,
-            message: `Extracting code from ${fileMatches.length} files...`,
+            phase: 'Analysis',
+            currentAgent: 'ContextAnalyzer',
+            progress: 60,
+            message: `Thought: Analyzing ${filteredFiles.length} files for relevance...`,
             isComplete: false,
             hasError: false
         });
 
-        const extractionPromises = fileMatches.map(match =>
-            this.codeExtractor.extract(match.uri.fsPath, match.relativePath, intent)
+        // Read files in parallel
+        const fileContents = await Promise.all(filteredFiles.map(async f => {
+            try {
+                const doc = await vscode.workspace.openTextDocument(f.uri);
+                return {
+                    uri: f.uri,
+                    relativePath: f.relativePath,
+                    content: doc.getText(),
+                    languageId: doc.languageId
+                };
+            } catch (e) {
+                return null;
+            }
+        }));
+
+        const validFiles = fileContents.filter(f => f !== null) as any[];
+
+        // Analyze
+        const analysis = this.contextAnalyzer.analyze(
+            validFiles,
+            plan.searchTerms,
+            plan.symbolSearch,
+            20000 // Token limit
         );
-        const extractions = await Promise.all(extractionPromises);
 
-        // 4. Score and select
-        this.emitStatus(statusAdapter, {
-            phase: 'Scoring',
-            currentAgent: 'RelevanceScorer',
-            progress: 80,
-            message: 'Ranking results by relevance...',
-            isComplete: false,
-            hasError: false
-        });
-
-        const scored = this.relevanceScorer.score(extractions, fileMatches, intent);
-        const selection = this.relevanceScorer.selectForContext(scored);
-
-        // 5. Format output
         this.emitStatus(statusAdapter, {
             phase: 'Complete',
             currentAgent: '',
@@ -212,7 +371,7 @@ export class PipelineEngine {
             hasError: false
         });
 
-        return this.formatContext(scored, selection, intent, Date.now());
+        return analysis.summary;
     }
 
     /**
@@ -224,11 +383,12 @@ export class PipelineEngine {
 
         for (const step of pipeline) {
             if (step.parallel && currentGroup.length > 0 && currentGroup[0].parallel) {
-                // Add to parallel group if dependencies are met
-                if (!step.dependency || this.isDependencyInGroup(step.dependency, currentGroup)) {
+                // If step has a dependency, ensure it's NOT in the current group (cannot run parallel with dependency)
+                const hasDependencyInGroup = step.dependency !== undefined && this.isDependencyInGroup(step.dependency, currentGroup);
+
+                if (!hasDependencyInGroup) {
                     currentGroup.push(step);
                 } else {
-                    // Start new group
                     groups.push(currentGroup);
                     currentGroup = [step];
                 }
@@ -258,7 +418,6 @@ export class PipelineEngine {
         const agent = this.agents.get(step.agent);
 
         if (!agent) {
-            // Agent not yet implemented - log and continue
             context.results.set(step.agent, {
                 agent: step.agent,
                 status: 'partial',
@@ -270,116 +429,266 @@ export class PipelineEngine {
             return;
         }
 
-        try {
-            const startTime = Date.now();
-            let result: any;
+        let attempts = 0;
+        const maxRetries = step.agent === 'Executor' || step.agent === 'CodeModifier' ? 0 : 2;
 
-            // Route to appropriate agent method
-            switch (step.agent) {
-                case 'IntentAnalyzer':
-                    result = this.intentAnalyzer.analyze(context.query);
-                    break;
-                case 'FileSearch':
-                    result = await this.fileFinder.find(
-                        context.results.get('IntentAnalyzer')?.payload || this.intentAnalyzer.analyze(context.query),
-                        context.activeFilePath
-                    );
-                    break;
-                case 'CodeExtractor':
-                    const files = context.results.get('FileSearch')?.payload as FileMatch[] || [];
-                    const intent = context.results.get('IntentAnalyzer')?.payload || this.intentAnalyzer.analyze(context.query);
-                    result = await Promise.all(files.map(f =>
-                        this.codeExtractor.extract(f.uri.fsPath, f.relativePath, intent)
-                    ));
-                    break;
-                case 'RelevanceScorer':
-                    const extractions = context.results.get('CodeExtractor')?.payload as ExtractionResult[] || [];
-                    const fileMatches = context.results.get('FileSearch')?.payload as FileMatch[] || [];
-                    const searchIntent = context.results.get('IntentAnalyzer')?.payload;
-                    result = this.relevanceScorer.score(extractions, fileMatches, searchIntent);
-                    break;
-                default:
-                    result = null;
-            }
+        while (attempts <= maxRetries) {
+            try {
+                const startTime = Date.now();
+                let result: any;
 
-            context.results.set(step.agent, {
-                agent: step.agent,
-                status: 'success',
-                confidence: 0.9,
-                executionTimeMs: Date.now() - startTime,
-                payload: result
-            });
+                switch (step.agent) {
+                    case 'ContextPlanner':
+                        result = this.contextPlanner.analyze(context.query, context.activeFilePath);
+                        break;
+                    case 'ContextAnalyzer': {
+                        // Requires files to be found first (dependency)
+                        const filesFound = context.results.get('FileSearch')?.payload as FileMatch[] || [];
 
-        } catch (error) {
-            context.results.set(step.agent, {
-                agent: step.agent,
-                status: 'failed',
-                confidence: 0,
-                executionTimeMs: 0,
-                payload: null,
-                error: {
-                    type: (error as Error).name,
-                    message: (error as Error).message
+                        if (filesFound.length === 0) {
+                            result = { summary: "No files to analyze", chunks: [] };
+                            break;
+                        }
+
+                        // Read files in parallel
+                        const fileContents = await Promise.all(filesFound.map(async f => {
+                            try {
+                                const doc = await vscode.workspace.openTextDocument(f.uri);
+                                return {
+                                    uri: f.uri,
+                                    content: doc.getText()
+                                };
+                            } catch (e) {
+                                return null;
+                            }
+                        }));
+
+                        const validFiles = fileContents.filter(f => f !== null) as { uri: vscode.Uri, content: string }[];
+
+                        // Get terms from planner or intent
+                        const plan = context.results.get('ContextPlanner')?.payload as ContextPlan;
+                        const intent = context.results.get('IntentAnalyzer')?.payload as any;
+
+                        const searchTerms = plan?.searchTerms || intent?.keywords || [];
+                        const symbolSearch = plan?.symbolSearch || intent?.symbols || [];
+
+                        result = this.contextAnalyzer.analyze(
+                            validFiles,
+                            searchTerms,
+                            symbolSearch,
+                            20000 // Token limit
+                        );
+                        break;
+                    }
+                    case 'ContextSearch':
+                        result = await this.contextSearch.execute({
+                            query: context.query,
+                            lookForPreviousFixes: step.args?.lookForPreviousFixes
+                        });
+                        break;
+                    case 'FilePartSearcher':
+                        // If refineSearch is requested, we need files to search in
+                        const foundFiles = context.results.get('FileSearch')?.payload as FileMatch[] || [];
+                        const activeFile = context.activeFilePath;
+
+                        // If we have an active file, search there
+                        if (activeFile) {
+                            result = await this.filePartSearcher.execute({
+                                filePath: activeFile,
+                                searchFor: { text: context.query } // Simplified
+                            });
+                        } else if (foundFiles.length > 0) {
+                            // Search up to 5 files in parallel
+                            const filesToSearch = foundFiles.slice(0, 5);
+                            const searchResults = await Promise.all(filesToSearch.map(f =>
+                                this.filePartSearcher.execute({
+                                    filePath: f.uri.fsPath,
+                                    searchFor: { text: context.query }
+                                })
+                            ));
+                            // Aggregate all matches
+                            result = searchResults.flatMap(r => r.payload || []);
+                        } else {
+                            result = [];
+                        }
+                        break;
+                    case 'IntentAnalyzer':
+                        result = this.intentAnalyzer.analyze(context.query);
+                        break;
+                    case 'FileSearch':
+                        const intent = context.results.get('IntentAnalyzer')?.payload || this.intentAnalyzer.analyze(context.query);
+                        result = await this.fileFinder.find(intent, context.activeFilePath);
+                        break;
+                    case 'ProcessPlanner':
+                        result = await this.processPlanner.execute({
+                            query: context.query,
+                            projectType: step.args?.projectType
+                        });
+                        break;
+                    case 'CodePlanner':
+                        const processPlan = context.results.get('ProcessPlanner')?.payload;
+                        const searchFiles = context.results.get('FileSearch')?.payload as FileMatch[] || [];
+                        const existingFiles = searchFiles.map(f => f.relativePath);
+
+                        result = await this.codePlanner.execute({
+                            query: context.query,
+                            projectType: processPlan?.projectType || step.args?.projectType || 'web',
+                            existingFiles: existingFiles,
+                            techStack: processPlan?.techStack
+                        });
+                        break;
+                    case 'TaskPlanner':
+                        const cPlan = context.results.get('CodePlanner')?.payload;
+                        result = await this.taskPlanner.execute({
+                            query: context.query,
+                            projectType: step.args?.projectType || 'web',
+                            fileStructure: cPlan?.fileStructure || [],
+                            interfaces: cPlan?.interfaces || [],
+                            apiEndpoints: cPlan?.apiEndpoints
+                        });
+                        break;
+                    case 'VersionController':
+                        result = await this.versionController.execute({
+                            action: step.args?.action || 'create_checkpoint',
+                            description: 'Pipeline execution checkpoint'
+                        } as any);
+                        break;
+                    case 'CommandGenerator':
+                        const tPlan = context.results.get('TaskPlanner')?.payload;
+                        result = await this.commandGenerator.execute({
+                            taskPlan: tPlan,
+                            generateStructure: step.args?.generateStructure
+                        } as any);
+                        break;
+                    case 'CodeGenerator':
+                        const tPlanForGen = context.results.get('TaskPlanner')?.payload;
+                        const cPlanForGen = context.results.get('CodePlanner')?.payload;
+                        result = await this.codeGenerator.execute({
+                            taskPlan: tPlanForGen,
+                            codePlan: cPlanForGen
+                        });
+                        break;
+                    case 'CodeModifier':
+                        const codeGenModifications = context.results.get('CodeGenerator')?.payload?.modifications || [];
+                        result = await this.codeModifier.execute({
+                            modifications: codeGenModifications,
+                            createCheckpoint: false
+                        });
+                        break;
+                    case 'Executor':
+                        const cmdGenResult = context.results.get('CommandGenerator')?.payload;
+                        const codeGenResult = context.results.get('CodeGenerator')?.payload;
+
+                        const commands = [
+                            ...(cmdGenResult?.commands || []),
+                            ...(codeGenResult?.commands || [])
+                        ];
+
+                        result = await this.executor.execute({
+                            commands: commands,
+                            cwd: vscode.workspace.workspaceFolders?.[0].uri.fsPath
+                        } as any);
+                        break;
+                    case 'DocWriter':
+                        result = await this.docWriter.execute({
+                            context: Object.fromEntries(context.results)
+                        } as any);
+                        break;
+                    default:
+                        result = null;
                 }
-            });
+
+                context.results.set(step.agent, {
+                    agent: step.agent,
+                    status: 'success',
+                    confidence: 0.9,
+                    executionTimeMs: Date.now() - startTime,
+                    payload: result
+                });
+                return; // Success, exit retry loop
+
+            } catch (error) {
+                attempts++;
+                if (attempts > maxRetries) {
+                    context.results.set(step.agent, {
+                        agent: step.agent,
+                        status: 'failed',
+                        confidence: 0,
+                        executionTimeMs: 0,
+                        payload: null,
+                        error: {
+                            type: (error as Error).name,
+                            message: (error as Error).message
+                        }
+                    });
+                } else {
+                    // Exponential backoff
+                    await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempts - 1)));
+                }
+            }
         }
     }
 
     /**
      * Build context string from pipeline results
+     * (Legacy fallback)
+     */
+    /**
+     * Build context string from pipeline results
      */
     private async buildContext(context: PipelineContext): Promise<string> {
-        const scored = context.results.get('RelevanceScorer')?.payload as ScoredResult[] || [];
-        const selection = this.relevanceScorer.selectForContext(scored);
-        const intent = context.results.get('IntentAnalyzer')?.payload;
+        let contextOutput = "";
 
-        return this.formatContext(scored, selection, intent, context.startTime);
-    }
-
-    /**
-     * Format context output for AI consumption
-     */
-    private formatContext(
-        results: ScoredResult[],
-        selection: Map<string, ScoredChunk[]>,
-        intent: SearchIntent,
-        startTime: number
-    ): string {
-        if (selection.size === 0) {
-            return this.formatNoResults(intent);
+        // 1. Add Plan Summary
+        if (context.results.has('ContextPlanner')) {
+            const plan = context.results.get('ContextPlanner')?.payload as ContextPlan;
+            contextOutput += `\n### 🧠 Context Plan\n- Scope: ${plan.scope}\n- Strategy: ${plan.priority}\n`;
         }
 
-        const lines: string[] = [];
-        lines.push('=== RELEVANT CODE CONTEXT ===');
-        lines.push(`Query type: ${intent.queryType} | Keywords: ${intent.keywords.slice(0, 5).join(', ')}`);
-        lines.push(`Files analyzed: ${results.length} | Time: ${Date.now() - startTime}ms`);
-        lines.push('');
+        // 2. Add Intent Analysis
+        if (context.results.has('IntentAnalyzer')) {
+            const intent = context.results.get('IntentAnalyzer')?.payload;
+            contextOutput += `\n### 🎯 Intent Analysis\n- Type: ${intent.queryType}\n- Complexity: ${intent.complexity}\n`;
+        }
 
-        for (const [filePath, chunks] of selection) {
-            const result = results.find(r => r.relativePath === filePath);
-            if (!result) continue;
-
-            lines.push(`--- FILE: ${filePath} (${result.language}) ---`);
-            lines.push(`Score: ${result.overallScore.toFixed(1)} | Mode: ${result.extractionMode}`);
-            lines.push('');
-
-            for (const chunk of chunks) {
-                if (chunk.name) {
-                    lines.push(`// ${chunk.type}: ${chunk.name} (lines ${chunk.startLine}-${chunk.endLine})`);
-                }
-                lines.push(chunk.content);
-                lines.push('');
+        // 3. Add Analyzed Code Context
+        // (This might have been added by ContextAnalyzer result already, but if not...)
+        if (context.results.has('ContextAnalyzer')) {
+            const analysis = context.results.get('ContextAnalyzer')?.payload as AnalyzedContext;
+            contextOutput += `\n### 📦 Code Context (${analysis.totalFiles} files analyzed)\n`;
+            for (const chunk of analysis.chunks) {
+                contextOutput += `\nFile: ${chunk.filePath} (lines ${chunk.startLine}-${chunk.endLine})\n`;
+                contextOutput += `\`\`\`${chunk.filePath.split('.').pop()}\n${chunk.content}\n\`\`\`\n`;
+            }
+        } else if (context.results.has('FileSearch')) {
+            // Fallback to raw file list if analysis failed/skipped
+            const files = context.results.get('FileSearch')?.payload as FileMatch[];
+            if (files && files.length > 0) {
+                contextOutput += `\n### 📂 Found Files\n${files.map(f => `- ${f.relativePath}`).join('\n')}\n`;
             }
         }
 
-        lines.push('=== END CONTEXT ===');
-        return lines.join('\n');
-    }
+        // 4. Add Project Plan (if applicable)
+        if (context.results.has('TaskPlanner')) {
+            const tasks = context.results.get('TaskPlanner')?.payload as TaskPlannerResult;
+            contextOutput += `\n### 📋 Implementation Plan\n`;
+            for (const task of tasks.taskGraph) {
+                contextOutput += `- [ ] ${task.description}\n`;
+                if (task.dependencies.length > 0) {
+                    contextOutput += `  - Dependencies: ${task.dependencies.join(', ')}\n`;
+                }
+            }
+        }
 
-    private formatNoResults(intent: SearchIntent): string {
-        return `No relevant files found for: ${intent.keywords.join(', ')}\n` +
-            `Query type: ${intent.queryType}\n` +
-            `Try being more specific or check if the files exist in the workspace.`;
+        // 5. Add Previous/Historical Context
+        if (context.results.has('ContextSearch')) {
+            const history = context.results.get('ContextSearch')?.payload;
+            if (history) {
+                contextOutput += `\n### 📜 Relevant History\n${history}\n`;
+            }
+        }
+
+        return contextOutput;
     }
 
     /**
@@ -387,14 +696,10 @@ export class PipelineEngine {
      */
     private buildDebugSummary(context: PipelineContext): string {
         const lines: string[] = ['Pipeline Execution Summary:'];
-
         for (const [agent, result] of context.results) {
-            lines.push(`  ${agent}: ${result.status} (${result.executionTimeMs}ms, confidence: ${result.confidence})`);
-            if (result.error) {
-                lines.push(`    Error: ${result.error.message}`);
-            }
+            lines.push(`  ${agent}: ${result.status} (${result.executionTimeMs}ms)`);
+            if (result.error) lines.push(`    Error: ${result.error.message}`);
         }
-
         lines.push(`Total time: ${Date.now() - context.startTime}ms`);
         return lines.join('\n');
     }
@@ -404,20 +709,14 @@ export class PipelineEngine {
      */
     private getPhaseForAgent(agent: string): string {
         const phases: Record<string, string> = {
+            'ContextPlanner': 'Planning',
+            'ContextAnalyzer': 'Analysis',
             'IntentAnalyzer': 'Analysis',
             'FileSearch': 'Discovery',
-            'FilePartSearcher': 'Discovery',
-            'ContextSearch': 'Discovery',
-            'Vision': 'Analysis',
-            'ProcessPlanner': 'Planning',
-            'CodePlanner': 'Planning',
-            'TaskPlanner': 'Planning',
-            'FileReader': 'Execution',
+            'CodeGenerator': 'Execution',
             'CommandGenerator': 'Execution',
             'CodeModifier': 'Execution',
             'Executor': 'Validation',
-            'VersionController': 'Safety',
-            'DocWriter': 'Documentation'
         };
         return phases[agent] || 'Processing';
     }
@@ -426,61 +725,82 @@ export class PipelineEngine {
         callback?.(status);
     }
 
-    /**
-     * Clear all agent caches
-     */
     clearCache(): void {
         this.fileFinder.clearCache();
     }
 
-    /**
-     * Get project map (for context)
-     */
     async getProjectMap(): Promise<string> {
         const folders = vscode.workspace.workspaceFolders;
         if (!folders?.length) return 'No workspace open';
+        return "Project Structure (Simulated)";
+    }
 
-        const lines: string[] = ['Project Structure:'];
-
-        try {
-            const files = await vscode.workspace.findFiles(
-                '**/*.{ts,tsx,js,jsx,py,java,cs,go,rb,php,vue,svelte,json,md}',
-                '{**/node_modules/**,**/.git/**,**/dist/**,**/out/**}'
-            );
-
-            // Group by directory
-            const dirs = new Map<string, string[]>();
-            for (const file of files) {
-                const rel = vscode.workspace.asRelativePath(file);
-                const parts = rel.split('/');
-                const dir = parts.length > 1 ? parts.slice(0, -1).join('/') : '.';
-                const fileName = parts[parts.length - 1];
-
-                if (!dirs.has(dir)) dirs.set(dir, []);
-                dirs.get(dir)!.push(fileName);
-            }
-
-            // Format output
-            const sortedDirs = [...dirs.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-            for (const [dir, fileNames] of sortedDirs.slice(0, 20)) {
-                lines.push(`  ${dir}/`);
-                for (const file of fileNames.slice(0, 5)) {
-                    lines.push(`    ${file}`);
-                }
-                if (fileNames.length > 5) {
-                    lines.push(`    ... and ${fileNames.length - 5} more`);
-                }
-            }
-
-            if (sortedDirs.length > 20) {
-                lines.push(`  ... and ${sortedDirs.length - 20} more directories`);
-            }
-
-        } catch (e) {
-            lines.push('  (Unable to read project structure)');
+    /**
+     * Get the active task ID for the current agent
+     */
+    private getActiveTaskId(context: PipelineContext, agent: string): string | undefined {
+        if (!context.currentPlan) return undefined;
+        const index = this.getTaskIndexForAgent(agent);
+        if (index >= 0 && index < context.currentPlan.length) {
+            return context.currentPlan[index].id;
         }
+        return undefined;
+    }
 
-        return lines.join('\n');
+    /**
+     * Update plan status based on agent execution
+     */
+    private updatePlanStatus(context: PipelineContext, agent: string, status: 'in_progress' | 'completed' | 'failed') {
+        if (!context.currentPlan) return;
+
+        const targetTaskIndex = this.getTaskIndexForAgent(agent);
+
+        if (targetTaskIndex >= 0 && targetTaskIndex < context.currentPlan.length) {
+            context.currentPlan[targetTaskIndex].status = status;
+        }
+    }
+
+    /**
+     * Retroactively update plan for already executed steps
+     */
+    private retroactivePlanUpdate(context: PipelineContext) {
+        if (!context.currentPlan) return;
+        
+        // If ContextAnalyzer ran, mark Analysis task as completed
+        if (context.results.has('ContextAnalyzer') || context.results.has('IntentAnalyzer')) {
+            this.updatePlanStatus(context, 'ContextAnalyzer', 'completed');
+        }
+        
+        // Mark Planning task as completed
+        this.updatePlanStatus(context, 'TaskPlanner', 'completed');
+    }
+
+    /**
+     * Map agent to task index in the generic plan
+     */
+    private getTaskIndexForAgent(agent: string): number {
+        const lowerAgent = agent.toLowerCase();
+
+        if (['context', 'intent', 'filesearch', 'vision'].some(k => lowerAgent.includes(k))) {
+            return 0; // Analyze
+        } else if (['planner'].some(k => lowerAgent.includes(k))) {
+            return 1; // Plan
+        } else if (['modify', 'generate', 'command'].some(k => lowerAgent.includes(k))) {
+            return 2; // Execute
+        } else if (['executor', 'test', 'validate'].some(k => lowerAgent.includes(k))) {
+            return 3; // Verify
+        }
+        return -1;
+    }
+}
+
+function mapScopeToQueryType(scope: 'file' | 'folder' | 'workspace' | 'minimal'): 'general' | 'explain' | 'fix' {
+    switch (scope) {
+        case 'workspace': return 'general';
+        case 'folder': return 'general';
+        case 'file': return 'explain';
+        case 'minimal': return 'general';
+        default: return 'general';
     }
 }
 

@@ -255,11 +255,19 @@ export class ContextManager {
         const lowerContent = content.toLowerCase();
 
         for (const term of queryTerms) {
+            const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
             // Name match is worth more
-            if (lowerName.includes(term)) score += 10;
+            if (lowerName === term) score += 20;
+            else if (lowerName.includes(term)) score += 10;
+
             // Content match
-            const contentMatches = (lowerContent.match(new RegExp(term, 'g')) || []).length;
-            score += Math.min(contentMatches, 5); // Cap at 5 matches
+            try {
+                const contentMatches = (lowerContent.match(new RegExp(escapedTerm, 'g')) || []).length;
+                score += Math.min(contentMatches, 10); // Cap at 10 matches
+            } catch (e) {
+                if (lowerContent.includes(term)) score += 1;
+            }
         }
 
         return score;
@@ -291,7 +299,7 @@ export class ContextManager {
 
         return items.map(item => {
             const extracted = item.extracted ? ' (extracted)' : '';
-            return `### ${item.path}${extracted}\n\`\`\`${item.language}\n${item.content}\n\`\`\``;
+            return `### \`${item.path}\`${extracted}\n\`\`\`${item.language}\n${item.content}\n\`\`\``;
         }).join('\n\n');
     }
 
@@ -305,8 +313,8 @@ export class ContextManager {
             : content;
         this.conversationContext.push(`${role}: ${summary}`);
 
-        // Keep last 10 turns
-        if (this.conversationContext.length > 10) {
+        // Keep last 25 turns
+        if (this.conversationContext.length > 25) {
             this.conversationContext.shift();
         }
     }
@@ -316,7 +324,7 @@ export class ContextManager {
      */
     public getConversationSummary(): string {
         if (this.conversationContext.length === 0) return '';
-        return '### Previous Context\n' + this.conversationContext.slice(-5).join('\n');
+        return '### Previous Context\n' + this.conversationContext.slice(-20).join('\n');
     }
 
     /**

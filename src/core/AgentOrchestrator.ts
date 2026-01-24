@@ -79,6 +79,24 @@ export class AgentOrchestrator {
     }
 
     /**
+     * Reset the orchestrator state and clear context
+     */
+    async clearAllData(): Promise<void> {
+        this.reset();
+        await this.versionController.deleteAllCheckpoints();
+    }
+
+    /**
+     * Reset the orchestrator state and clear context
+     */
+    reset(): void {
+        this.lastReferencedFile = null;
+        this.lastCreatedFile = null;
+        this.lastModifiedFile = null;
+        this.contextSearch.clear();
+    }
+
+    /**
      * Get the last referenced file for context
      */
     getLastReferencedFile(): string | null {
@@ -107,10 +125,67 @@ export class AgentOrchestrator {
     }
 
     /**
+     * Parse structured XML-like actions from AI response
+     * <byte_action type="create_file" path="src/main.ts">code</byte_action>
+     */
+    private parseStructuredResponse(response: string): ParsedInstruction[] {
+        const instructions: ParsedInstruction[] = [];
+        const actionRegex = /<byte_action\s+([^>]+)>([\s\S]*?)<\/byte_action>/gi;
+        let match;
+
+        while ((match = actionRegex.exec(response)) !== null) {
+            const attributesStr = match[1];
+            const content = match[2].trim();
+            
+            const attributes: {[key: string]: string} = {};
+            const attrRegex = /(\w+)="([^"]*)"/g;
+            let attrMatch;
+            while ((attrMatch = attrRegex.exec(attributesStr)) !== null) {
+                attributes[attrMatch[1]] = attrMatch[2];
+            }
+
+            const type = attributes['type'];
+            const path = attributes['path'];
+
+            if (type === 'create_file') {
+                instructions.push({ type: 'create_file', path, content });
+            } else if (type === 'modify_file') {
+                instructions.push({ type: 'modify_file', path, content });
+            } else if (type === 'run_command') {
+                instructions.push({ type: 'run_command', command: content || attributes['command'] });
+            } else if (type === 'delete_file') {
+                instructions.push({ type: 'delete_file', path });
+            } else if (type === 'create_folder') {
+                instructions.push({ type: 'create_folder', path });
+            } else if (type === 'partial_edit') {
+                // Extract search/replace from content if structured tags present
+                const searchMatch = /<search>([\s\S]*?)<\/search>/i.exec(content);
+                const replaceMatch = /<replace>([\s\S]*?)<\/replace>/i.exec(content);
+                if (searchMatch && replaceMatch) {
+                    instructions.push({
+                        type: 'partial_edit',
+                        path,
+                        searchContent: searchMatch[1].trim(),
+                        replaceContent: replaceMatch[1].trim()
+                    });
+                }
+            }
+        }
+        return instructions;
+    }
+
+    /**
      * Parse AI response for executable instructions
      * This catches many different ways the AI might describe file creation
      */
     parseAIResponse(response: string): ParsedInstruction[] {
+        // PRIORITY 0: Check for structured actions first
+        const structuredInstructions = this.parseStructuredResponse(response);
+        if (structuredInstructions.length > 0) {
+            console.log('[AgentOrchestrator] Found structured instructions:', structuredInstructions.length);
+            return structuredInstructions;
+        }
+
         const instructions: ParsedInstruction[] = [];
         const addedPaths = new Set<string>();
         const deletedPaths = new Set<string>();
@@ -442,10 +517,15 @@ export class AgentOrchestrator {
         let checkpointId: string | undefined;
 
         // Create checkpoint before making changes
-        if (instructions.some(i => i.type === 'create_file' || i.type === 'modify_file')) {
+        const targetFiles = instructions
+            .filter(i => ['create_file', 'modify_file', 'delete_file', 'partial_edit'].includes(i.type))
+            .map(i => this.resolvePath(i.path!));
+            
+        if (targetFiles.length > 0) {
             onProgress('📸 Creating checkpoint before changes...');
             const checkpointResult = await this.versionController.execute({
                 action: 'create_checkpoint',
+                files: targetFiles,
                 description: `Auto-checkpoint before ${instructions.length} operations`
             });
             if (checkpointResult.status === 'success') {
@@ -484,7 +564,7 @@ export class AgentOrchestrator {
                                 content: instruction.content,
                                 description: `Created ${instruction.path}`
                             },
-                            result: `✅ Created ${instruction.path}`,
+                            result: `✅ Created \`${instruction.path}\``,
                             success: true
                         });
                         break;
@@ -504,7 +584,7 @@ export class AgentOrchestrator {
                                 path: instruction.path,
                                 description: `Created directory ${instruction.path}`
                             },
-                            result: `✅ Created directory ${instruction.path}`,
+                            result: `✅ Created directory \`${instruction.path}\``,
                             success: true
                         });
                         break;
@@ -545,8 +625,8 @@ export class AgentOrchestrator {
                                 description: `Executed: ${command}`
                             },
                             result: success
-                                ? `✅ ${command}\n${execResult.payload.stdout.slice(0, 200)}`
-                                : `❌ ${command}\n${execResult.payload.stderr.slice(0, 200)}`,
+                                ? `✅ \`${command}\`\n${execResult.payload.stdout.slice(0, 200)}`
+                                : `❌ \`${command}\`\n${execResult.payload.stderr.slice(0, 200)}`,
                             success
                         });
                         break;
@@ -734,7 +814,7 @@ export class AgentOrchestrator {
                                 path: instruction.path,
                                 description: editDescription
                             },
-                            result: `✅ ${editDescription}`,
+                            result: `✅ ${editDescription.replace(instruction.path!, `\`${instruction.path}\``)}`,
                             success: true
                         });
                         break;

@@ -44,7 +44,7 @@ export class FileFinderAgent {
         '**/*.{ts,tsx,js,jsx,py,java,cs,go,rb,php,vue,svelte,json,yaml,yml,md,css,scss,html,c,cpp,h,hpp,rs}';
 
     private readonly EXCLUDE_PATTERNS =
-        '{**/node_modules/**,**/.git/**,**/dist/**,**/out/**,**/build/**,**/.next/**,**/coverage/**,**/.gemini/**}';
+        '{**/node_modules/**,**/.git/**,**/dist/**,**/out/**,**/build/**,**/.next/**,**/coverage/**,**/.gemini/**,**/.bytecoder/**}';
 
     /**
      * Find relevant files based on search intent
