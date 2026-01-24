@@ -11,6 +11,17 @@
 
 ---
 
+## 🚀 Why Byte Coder?
+
+Most AI tools are blind to your project's structure. They guess. **Byte Coder knows.**
+
+*   **🚫 Stop Copy-Pasting**: Byte Coder reads your files automatically.
+*   **🧠 Deep Understanding**: It builds a mental model of your project's architecture.
+*   **⚡ Autonomous Execution**: Give it a goal, and watch it plan, execute, and verify the solution.
+*   **🔒 Privacy First**: Your code is processed securely with state-of-the-art privacy standards.
+
+---
+
 ## 📦 Install
 
 **[👉 Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=uthakkan.byte-coder-ai-agent)**
@@ -37,9 +48,28 @@ Most AI coding tools just send your selected code to an API. **Byte Coder is an 
 
 ---
 
+## 🚀 Agentic Coding (New in v1.0.2)
+
+Byte Coder has evolved from a chat assistant to a **fully autonomous coding agent**. It can now **plan, execute, and refine** complex coding tasks.
+
+### 📋 Dynamic Implementation Plan
+- **Live Planning** — Breaks down complex requests into actionable steps (e.g., "Create API", "Update Database", "Add Tests").
+- **Real-time Progress** — Watch as the agent executes each step of the plan.
+- **Auto-Recovery** — If a step fails, the agent backtracks and adjusts the plan dynamically.
+- **Visual Status** — Dedicated "Plan" drawer in the UI to track task completion.
+
+### 🛠️ Autonomous Execution
+The new **Pipeline Engine** orchestrates specialized agents to get work done:
+- **ManagerAgent** — Decomposes high-level requests into tasks.
+- **TaskPlannerAgent** — Creates topological dependency graphs.
+- **CodeModifierAgent** — Performs surgical code edits with rollback capability.
+- **ExecutorAgent** — Runs commands and verifies fixes.
+
+---
+
 ## 🧠 Intelligent Agent System
 
-Byte Coder's brain consists of **4 specialized sub-agents** working together:
+Byte Coder's brain consists of **specialized sub-agents** working together:
 
 <div align="center">
 

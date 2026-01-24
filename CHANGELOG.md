@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.2] - 2026-01-25
+
+### 🚀 Major Release: Agentic Coding Era
+This release transforms Byte Coder from a chat assistant into a fully autonomous agent capable of planning and executing complex tasks.
+
+### ✨ New Features
+- **Dynamic Implementation Plan**: A new UI drawer that visualizes the agent's plan, showing real-time progress, todo items, and status.
+- **Autonomous Pipeline Engine**: A new robust execution engine that orchestrates specialized agents to complete tasks.
+- **Auto-Recovery & Backtracking**: If a step fails, the agent now automatically plans recovery tasks to fix the issue.
+- **Clickable File Tags**: File paths in chat are now interactive - click to open the file directly in the editor.
+- **Settings Persistence**: Fixed issues with saving Custom Instructions.
+
+### 🤖 New Agents
+- **ManagerAgent**: High-level task decomposition and strategy.
+- **TaskPlannerAgent**: Creates dependency graphs for complex tasks.
+- **CodeModifierAgent**: Performs surgical, reversible code edits.
+- **ExecutorAgent**: Runs commands and validates results.
+
+### 🐛 Bug Fixes
+- Fixed file opening from chat tags.
+- Resolved settings save failures.
+- Optimized performance by removing redundant legacy analyzers.
+
+---
+
 ## [1.0.1] - 2026-01-16
 
 ### 🎉 Highlights

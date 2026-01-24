@@ -4,34 +4,59 @@
 **Byte Coder AI Agent** is an agentic AI coding assistant for VS Code featuring a multi-agent architecture. It goes beyond simple text completion by understanding your entire codebase through specialized sub-agents. It offers a premium glassmorphism UI, smart file discovery, and AST-aware code extraction.
 
 ## Core Architecture: Multi-Agent System
-The extension relies on four specialized sub-agents to process user requests effectively:
+The extension relies on a sophisticated ecosystem of specialized sub-agents to process user requests effectively:
 
+### 🧠 Analysis & Discovery Layer
 1.  **IntentAnalyzer** (`src/agents/IntentAnalyzer.ts`)
     *   **Role**: The "Brain" of the operation.
     *   **Function**: Analyzes user queries to determine intent (e.g., Fix, Explain, Refactor).
-    *   **Capabilities**:
-        *   Extracts keywords and code symbols.
-        *   Identifies mentioned files.
-        *   Determines query complexity and type.
-        *   Expands keywords semantically (e.g., "login" -> "auth", "session").
+    *   **Capabilities**: Semantic expansion, complexity analysis, file identification.
 
 2.  **FileFinderAgent** (`src/agents/FileFinderAgent.ts`)
     *   **Role**: The "Navigator".
     *   **Function**: Locates relevant files within the project based on the intent and keywords.
-    *   **Capabilities**: Smart discovery of files, filtering by relevance.
 
 3.  **CodeExtractorAgent** (`src/agents/CodeExtractorAgent.ts`)
     *   **Role**: The "Miner".
-    *   **Function**: Extracts meaningful code chunks from the files found.
-    *   **Capabilities**: AST-aware extraction, ensuring that complete functions/classes are retrieved rather than just random lines.
+    *   **Function**: Extracts meaningful code chunks using AST-aware parsing.
 
 4.  **RelevanceScorerAgent** (`src/agents/RelevanceScorerAgent.ts`)
     *   **Role**: The "Judge".
-    *   **Function**: Ranks the extracted code chunks and files to ensure only the most relevant context is sent to the AI.
+    *   **Function**: Ranks information to ensure optimal context usage.
+
+### 🛠️ Execution & Planning Layer (New in v1.0.2)
+5.  **ManagerAgent** (`src/core/ManagerAgent.ts`)
+    *   **Role**: The "Project Manager".
+    *   **Function**: Oversees the entire task lifecycle, deciding when to plan, execute, or ask for clarification.
+    *   **Workflow**: Receives user input -> Assesses complexity -> Delegates to TaskPlanner or responds directly.
+
+6.  **TaskPlannerAgent** (`src/agents/TaskPlannerAgent.ts`)
+    *   **Role**: The "Architect".
+    *   **Function**: Breaks down complex requests into a directed acyclic graph (DAG) of dependent tasks.
+    *   **Capabilities**:
+        *   **Dependency Resolution**: Ensures "Create Database" happens before "Seed Data".
+        *   **Topological Sorting**: Optimizes execution order for parallel processing.
+
+7.  **CodeModifierAgent** (`src/agents/CodeModifierAgent.ts`)
+    *   **Role**: The "Surgeon".
+    *   **Function**: Performs precise, surgical code edits without breaking surrounding logic. Supports rollback.
+    *   **Safety**: Uses AST analysis to verify syntax before and after edits.
+
+8.  **ExecutorAgent** (`src/agents/ExecutorAgent.ts`)
+    *   **Role**: The "Operator".
+    *   **Function**: Executes terminal commands, runs tests, and verifies fixes.
+    *   **Self-Healing**: Captures error output (stderr) and triggers a feedback loop to the ManagerAgent for correction.
 
 ## Key Features
 
-### 1. Smart Chat Interface
+### 1. Agentic Workflow & Dynamic Planning (New!)
+*   **Pipeline Engine**: A robust state machine that manages the execution of multi-step plans.
+    *   **State Management**: Tracks `Pending`, `Running`, `Completed`, `Failed` states for every task.
+    *   **Context Preservation**: Passes outputs from one task (e.g., "File Created") as inputs to the next (e.g., "Write Tests").
+*   **Visual Plan Drawer**: A dedicated UI component that shows the current implementation plan, active step, and status.
+*   **Auto-Recovery**: If a step fails (e.g., compilation error), the system automatically inserts recovery tasks to fix the issue before proceeding.
+
+### 2. Smart Chat Interface
 *   **Glassmorphism UI**: A modern, visually appealing interface.
 *   **Rich Interaction**: Supports Markdown rendering, code highlighting, and interactive elements.
 *   **Session Management**: Save, load, rename, and delete chat sessions.
