@@ -56,6 +56,10 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
         'Audit': {
             keywords: ['review', 'check', 'audit', 'security', 'test', 'validate', 'analyze', 'scan', 'inspect'],
             weight: 0.85
+        },
+        'Expand': {
+            keywords: ['full', 'entire', 'complete', 'rest', 'continue', 'more', 'expand', 'extend', 'give full'],
+            weight: 0.95
         }
     };
 
@@ -81,7 +85,7 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
             const complexity = this.assessComplexity(input);
 
             // 3. Calculate overall confidence
-            const confidence = this.calculateConfidence(input, intentConfidence);
+            const confidence = this.calculateConfidence(input, intent, intentConfidence);
 
             // 4. Determine action based on confidence
             const action = getDecisionAction(confidence);
@@ -118,7 +122,7 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
     private classifyIntent(query: string): { intent: IntentType; intentConfidence: number } {
         const lowerQuery = query.toLowerCase();
         const scores: Record<IntentType, number> = {
-            'Fix': 0, 'Build': 0, 'Modify': 0, 'Explain': 0, 'Design': 0, 'Audit': 0
+            'Fix': 0, 'Build': 0, 'Modify': 0, 'Explain': 0, 'Design': 0, 'Audit': 0, 'Expand': 0
         };
 
         // Score each intent based on keyword matches
@@ -182,8 +186,13 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
     /**
      * Calculate overall confidence based on multiple factors
      */
-    private calculateConfidence(input: ManagerInput, intentConfidence: number): number {
+    private calculateConfidence(input: ManagerInput, intent: IntentType, intentConfidence: number): number {
         let confidence = intentConfidence;
+
+        // Boost confidence for Expand intent (usually context-dependent and short)
+        if (intent === 'Expand') {
+            confidence += 0.3;
+        }
 
         // Boost confidence if we have context
         if (input.activeFilePath) confidence += 0.1;
@@ -220,8 +229,18 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
             });
         }
 
+        // EXPAND PHASE
+        if (intent === 'Expand') {
+            pipeline.push({
+                step: step++,
+                agent: 'ContentRetriever',
+                parallel: false,
+                required: true
+            });
+        }
+
         // SEARCH PHASE
-        if (!input.hasSelection || complexity !== 'simple') {
+        if (intent !== 'Expand' && (!input.hasSelection || complexity !== 'simple')) {
             pipeline.push({
                 step: step++,
                 agent: 'FileSearch',
@@ -284,7 +303,7 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
         }
 
         // EXECUTION PHASE (for modify/fix/build)
-        if (intent !== 'Explain' && intent !== 'Audit') {
+        if (intent !== 'Explain' && intent !== 'Audit' && intent !== 'Expand') {
             // Create checkpoint before modifications
             pipeline.push({
                 step: step++,
@@ -383,7 +402,8 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
             'Modify': 'Locating relevant code sections...',
             'Explain': 'Gathering context to explain...',
             'Design': 'Analyzing requirements and architecting solution...',
-            'Audit': 'Scanning codebase for issues...'
+            'Audit': 'Scanning codebase for issues...',
+            'Expand': 'Retrieving full content...'
         };
 
         return messages[intent] || 'Processing your request...';

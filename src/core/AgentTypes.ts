@@ -6,7 +6,7 @@
 // ===== AGENT OUTPUT TYPES =====
 
 export type AgentStatus = 'success' | 'failed' | 'partial' | 'running';
-export type IntentType = 'Build' | 'Fix' | 'Modify' | 'Explain' | 'Design' | 'Audit';
+export type IntentType = 'Build' | 'Fix' | 'Modify' | 'Explain' | 'Design' | 'Audit' | 'Expand';
 export type QueryType = 'fix' | 'explain' | 'refactor' | 'test' | 'optimize' | 'security' | 'build' | 'design' | 'general';
 export type Complexity = 'simple' | 'medium' | 'complex';
 

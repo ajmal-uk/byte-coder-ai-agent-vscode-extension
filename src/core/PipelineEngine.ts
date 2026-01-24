@@ -594,6 +594,36 @@ export class PipelineEngine {
                             context: Object.fromEntries(context.results)
                         } as any);
                         break;
+                    case 'ContentRetriever':
+                        let fullContent = "";
+                        // 1. Try active file
+                        if (context.activeFilePath) {
+                             const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+                             if (root) {
+                                 try {
+                                     const fullUri = vscode.Uri.joinPath(root, context.activeFilePath);
+                                     const doc = await vscode.workspace.openTextDocument(fullUri);
+                                     fullContent = `File: ${context.activeFilePath} (FULL CONTENT)\n\`\`\`${doc.languageId}\n${doc.getText()}\n\`\`\``;
+                                 } catch (e) {
+                                     // ignore
+                                 }
+                             }
+                        }
+
+                        // 2. If no active file or failed, search for file in query
+                        if (!fullContent) {
+                            const intent = context.results.get('IntentAnalyzer')?.payload || this.intentAnalyzer.analyze(context.query);
+                            const foundFiles = await this.fileFinder.find(intent, context.activeFilePath);
+                            
+                            if (foundFiles && foundFiles.length > 0) {
+                                 const f = foundFiles[0];
+                                 const doc = await vscode.workspace.openTextDocument(f.uri);
+                                 fullContent = `File: ${f.relativePath} (FULL CONTENT)\n\`\`\`${doc.languageId}\n${doc.getText()}\n\`\`\``;
+                            }
+                        }
+                        
+                        result = fullContent || "Could not retrieve full content. Please specify a valid file.";
+                        break;
                     default:
                         result = null;
                 }
@@ -638,6 +668,12 @@ export class PipelineEngine {
      */
     private async buildContext(context: PipelineContext): Promise<string> {
         let contextOutput = "";
+
+        // 0. Add Full Content (if requested)
+        if (context.results.has('ContentRetriever')) {
+            const content = context.results.get('ContentRetriever')?.payload;
+            contextOutput += `\n### 📖 Full Content\n${content}\n`;
+        }
 
         // 1. Add Plan Summary
         if (context.results.has('ContextPlanner')) {
