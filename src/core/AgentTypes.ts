@@ -111,7 +111,7 @@ export interface SearchResult {
 }
 
 export interface ContextMemory {
-    type: 'previous_fix' | 'conversation' | 'file_history' | 'pattern';
+    type: 'previous_fix' | 'conversation' | 'file_history' | 'pattern' | 'knowledge';
     date: Date;
     summary: string;
     relevance: number;
@@ -137,6 +137,7 @@ export interface TaskNode {
     validationCommand?: string;
     status?: 'pending' | 'in_progress' | 'completed' | 'failed';
     output?: any;
+    retryCount?: number;
 }
 
 export interface CodePlan {

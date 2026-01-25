@@ -5,9 +5,11 @@
 
 import * as os from 'os';
 import { BaseAgent, AgentOutput, CommandSpec } from '../core/AgentTypes';
+import { TaskPlannerResult } from './TaskPlannerAgent';
 
 export interface CommandGeneratorInput {
-    operation: 'create_file' | 'create_dir' | 'copy' | 'move' | 'delete' | 'run_script' | 'install_deps' | 'custom';
+    operation?: 'create_file' | 'create_dir' | 'copy' | 'move' | 'delete' | 'run_script' | 'install_deps' | 'custom';
+    taskPlan?: TaskPlannerResult;
     target?: string;
     source?: string;
     content?: string;
@@ -56,8 +58,22 @@ export class CommandGeneratorAgent extends BaseAgent<CommandGeneratorInput, Comm
             let requiresConfirmation = false;
             let warningMessage: string | undefined;
 
+            // Handle task plan if provided
+            if (input.taskPlan) {
+                for (const task of input.taskPlan.taskGraph) {
+                    if (task.validationCommand) {
+                        commands.push({
+                            command: task.validationCommand,
+                            args: [],
+                            platform: 'all',
+                            description: task.description
+                        });
+                    }
+                }
+            }
+
             switch (input.operation) {
-                case 'create_file':
+                    case 'create_file':
                     commands.push(...this.generateCreateFileCommands(input.target!, input.content));
                     break;
                 case 'create_dir':

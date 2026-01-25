@@ -11,6 +11,10 @@ import { CodePlannerResult } from './CodePlannerAgent';
 export interface CodeGeneratorInput {
     taskPlan: TaskPlannerResult;
     codePlan: CodePlannerResult;
+    context?: {
+        knowledge?: any[];
+        files?: any[];
+    };
 }
 
 export interface CodeGeneratorResult {
@@ -36,7 +40,7 @@ export class CodeGeneratorAgent extends BaseAgent<CodeGeneratorInput, CodeGenera
             for (const task of input.taskPlan.taskGraph) {
                 if (task.filePath && !task.description.includes('mkdir')) {
                     // This task involves a file
-                    const content = this.generateContentForFile(task.filePath, task.description, input.codePlan);
+                    const content = this.generateContentForFile(task.filePath, task.description, input.codePlan, input.context);
                     
                     // For now, we assume we are creating new files (CommandGenerator will handle it)
                     // In a real scenario, we'd check if file exists to decide between create vs modify
@@ -73,12 +77,39 @@ export class CodeGeneratorAgent extends BaseAgent<CodeGeneratorInput, CodeGenera
     /**
      * Generate content for a file based on its type and description
      */
-    private generateContentForFile(filePath: string, description: string, codePlan: CodePlannerResult): string {
+    private generateContentForFile(filePath: string, description: string, codePlan: CodePlannerResult, context?: CodeGeneratorInput['context']): string {
         const ext = filePath.split('.').pop()?.toLowerCase();
         const fileName = filePath.split('/').pop()?.split('.')[0] || 'Component';
 
+        // Extract relevant knowledge if available
+        let additionalContext = '';
+        if (context?.knowledge && context.knowledge.length > 0) {
+            // Simple keyword matching to find relevant knowledge
+            const relevantKnowledge = context.knowledge.filter(k => {
+                const keywords = description.toLowerCase().split(' ').filter(w => w.length > 3);
+                return keywords.some(w => k.summary.toLowerCase().includes(w) || k.content?.toLowerCase().includes(w));
+            });
+
+            if (relevantKnowledge.length > 0) {
+                additionalContext = `\n// RELEVANT CONTEXT:\n// ${relevantKnowledge.map(k => k.summary).join('\n// ')}\n`;
+            }
+        }
+
         // 1. React Component
-        if (filePath.includes('components/') && (ext === 'tsx' || ext === 'jsx')) {
+        if ((filePath.includes('components/') || filePath.includes('pages/')) && (ext === 'tsx' || ext === 'jsx')) {
+            let innerContent = `{/* TODO: Implement ${description} */}`;
+            
+            // Inject context into the component if relevant
+            if (additionalContext) {
+                 innerContent += `\n            {/* \n              CONTEXT:\n              ${context?.knowledge?.map(k => k.summary).join('\n              ')} \n            */}`;
+                 // Also try to intelligently inject strings
+                 context?.knowledge?.forEach(k => {
+                     if (k.summary.includes('founder') || k.summary.includes('owner')) {
+                         innerContent += `\n            <p>Founder: ${k.summary.split(':')[1]?.trim() || 'Unknown'}</p>`;
+                     }
+                 });
+            }
+
             return `import React from 'react';
 
 interface ${fileName}Props {
@@ -89,7 +120,7 @@ interface ${fileName}Props {
 export const ${fileName}: React.FC<${fileName}Props> = ({ children }) => {
     return (
         <div className="${fileName.toLowerCase()}-container">
-            {/* TODO: Implement ${description} */}
+            ${innerContent}
             <h2>${fileName}</h2>
             {children}
         </div>
@@ -137,7 +168,51 @@ export const process${fileName} = (data: any): void => {
 `;
         }
 
-        // 4. JSON Config
+        // 4. Python Script
+        if (ext === 'py') {
+            // Check if it's a math/calculation task
+            if (description.toLowerCase().includes('solve') || description.toLowerCase().includes('calculate')) {
+                // Extract potential math expression from description (simple heuristic)
+                // Looks for sequences of numbers and operators
+                const mathMatch = description.match(/[\d\s\+\-\*\/\(\)\.]+/);
+                const expression = mathMatch ? mathMatch[0].trim() : '"Could not parse expression"';
+                
+                return `# Python script to ${description}
+def solve():
+    try:
+        result = ${expression}
+        print(f"Result: {result}")
+    except Exception as e:
+        print(f"Error: {e}")
+
+if __name__ == "__main__":
+    solve()
+`;
+            }
+
+            return `# ${fileName}.py
+# ${description}
+
+def main():
+    print("Executing ${fileName}...")
+    # TODO: Implement logic
+
+if __name__ == "__main__":
+    main()
+`;
+        }
+
+        // 5. Shell Script
+        if (ext === 'sh') {
+            return `#!/bin/bash
+# ${description}
+
+echo "Running ${fileName}..."
+# TODO: Implement commands
+`;
+        }
+
+        // 6. JSON Config
         if (ext === 'json') {
             return `{\n  "name": "${fileName}",\n  "version": "1.0.0"\n}`;
         }

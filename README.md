@@ -65,6 +65,9 @@ The new **Pipeline Engine** orchestrates specialized agents to get work done:
 - **CodeModifierAgent** — Performs surgical code edits with rollback capability.
 - **ExecutorAgent** — Runs commands and verifies fixes.
 
+### 🧠 Offline Knowledge & Identity
+Byte Coder now comes with an embedded **Knowledge Base** that allows it to answer questions about its creator, purpose, and capabilities without needing internet access for basic identity queries. It strictly adheres to its identity as a creation of **Ajmal U K** and **UTHAKKAN**.
+
 ---
 
 ## 🧠 Intelligent Agent System

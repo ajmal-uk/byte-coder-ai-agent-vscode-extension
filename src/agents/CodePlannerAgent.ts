@@ -5,11 +5,14 @@
 
 import * as vscode from 'vscode';
 import { BaseAgent, AgentOutput, CodePlan } from '../core/AgentTypes';
+import { AnalyzedContext } from './ContextAnalyzer';
 
 export interface CodePlannerInput {
     query: string;
     projectType: string;
     existingFiles?: string[];
+    contextAnalysis?: AnalyzedContext; // Added for context integration
+    contextKnowledge?: any[]; // Knowledge base results
     techStack?: {
         frontend?: string;
         backend?: string;
@@ -156,9 +159,9 @@ export class CodePlannerAgent extends BaseAgent<CodePlannerInput, CodePlannerRes
     }
 
     /**
-     * Extract features from query
+     * Extract features from query and knowledge
      */
-    private extractFeatures(query: string): string[] {
+    private extractFeatures(query: string, knowledge?: any[]): string[] {
         const features: string[] = [];
         const featureKeywords: Record<string, string> = {
             'auth': 'authentication',
@@ -183,7 +186,20 @@ export class CodePlannerAgent extends BaseAgent<CodePlannerInput, CodePlannerRes
             }
         }
 
-        return features;
+        // Extract from knowledge base if available
+        if (knowledge && knowledge.length > 0) {
+            knowledge.forEach(k => {
+                const summary = k.summary.toLowerCase();
+                if (summary.includes('product') || summary.includes('item')) features.push('products');
+                if (summary.includes('service')) features.push('services');
+                if (summary.includes('blog') || summary.includes('article')) features.push('blog');
+                if (summary.includes('contact')) features.push('contact');
+                if (summary.includes('about') || summary.includes('mission')) features.push('about');
+                if (summary.includes('dashboard') || summary.includes('admin')) features.push('dashboard');
+            });
+        }
+
+        return [...new Set(features)];
     }
 
     /**
@@ -214,7 +230,7 @@ export class CodePlannerAgent extends BaseAgent<CodePlannerInput, CodePlannerRes
      */
     private generateInterfaces(input: CodePlannerInput): string[] {
         const interfaces: string[] = [];
-        const features = input.features || this.extractFeatures(input.query.toLowerCase());
+        const features = input.features || this.extractFeatures(input.query.toLowerCase(), input.contextKnowledge);
 
         // Common base interfaces
         interfaces.push('interface ApiResponse<T> { success: boolean; data?: T; error?: string }');

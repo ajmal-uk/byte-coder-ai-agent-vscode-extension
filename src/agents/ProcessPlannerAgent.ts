@@ -11,6 +11,7 @@ export interface ProcessPlannerInput {
     projectType?: string;  // 'web', 'api', 'cli', 'library', etc.
     existingStructure?: string[];
     constraints?: string[];
+    contextKnowledge?: any[]; // Knowledge base results
 }
 
 export interface ProcessPlannerResult {
@@ -97,7 +98,7 @@ export class ProcessPlannerAgent extends BaseAgent<ProcessPlannerInput, ProcessP
             );
 
             // Determine tech stack
-            const techStack = this.determineTechStack(input.query, template?.techStack);
+            const techStack = this.determineTechStack(input.query, template?.techStack, input.contextKnowledge);
 
             // Estimate duration
             const estimatedDuration = this.estimateDuration(phases);
@@ -213,16 +214,34 @@ export class ProcessPlannerAgent extends BaseAgent<ProcessPlannerInput, ProcessP
     }
 
     /**
-     * Determine tech stack based on query and template
+     * Determine technology stack based on requirements and knowledge
      */
-    private determineTechStack(
-        query: string,
-        template?: ProcessPlannerResult['techStack']
-    ): ProcessPlannerResult['techStack'] {
-        const stack = { ...template };
+    private determineTechStack(query: string, defaultStack?: any, knowledge?: any[]): any {
+        const stack = { ...defaultStack };
         const lowerQuery = query.toLowerCase();
 
-        // Override with specific frameworks if mentioned
+        // Check knowledge base for forced stack choices
+        if (knowledge) {
+            knowledge.forEach(k => {
+                const summary = k.summary.toLowerCase();
+                if (summary.includes('react')) stack.frontend = 'React';
+                if (summary.includes('vue')) stack.frontend = 'Vue.js';
+                if (summary.includes('angular')) stack.frontend = 'Angular';
+                if (summary.includes('svelte')) stack.frontend = 'Svelte';
+                
+                if (summary.includes('python') || summary.includes('django') || summary.includes('flask')) stack.backend = 'Python';
+                if (summary.includes('go') || summary.includes('golang')) stack.backend = 'Go';
+                if (summary.includes('node')) stack.backend = 'Node.js';
+                
+                if (summary.includes('mongo')) stack.database = 'MongoDB';
+                if (summary.includes('postgres')) stack.database = 'PostgreSQL';
+                if (summary.includes('mysql')) stack.database = 'MySQL';
+                if (summary.includes('firebase')) stack.database = 'Firebase';
+            });
+        }
+
+        // Override with explicit query requirements
+        if (lowerQuery.includes('react')) stack.frontend = 'React 18 + TypeScript';
         if (lowerQuery.includes('next.js') || lowerQuery.includes('nextjs')) {
             stack.frontend = 'Next.js 14 + TypeScript';
         } else if (lowerQuery.includes('vue')) {

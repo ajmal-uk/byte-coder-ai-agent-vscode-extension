@@ -607,7 +607,8 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                 pipelineContext = pipelineOutput.context;
                 pipelineResults = pipelineOutput.results;
 
-                contextMsg += pipelineContext;
+                // Prepend context to message
+                contextMsg = pipelineContext + '\n\n' + contextMsg;
 
             } else {
                 // Fallback to simple search if confidence is low
@@ -617,10 +618,14 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     message: 'Low confidence in detailed plan - falling back to broad search'
                 });
 
-                const projectMap = await this._searchAgent.getProjectMap();
-                contextMsg += projectMap;
                 const searchContext = await this._searchAgent.search(message, activeFilePath);
-                if (searchContext) contextMsg += searchContext;
+                if (searchContext) {
+                    // Prepend search context to ensure it's seen first
+                    contextMsg = searchContext + '\n\n' + contextMsg;
+                }
+
+                const projectMap = await this._searchAgent.getProjectMap();
+                contextMsg += '\n\n' + projectMap;
             }
 
             this._contextManager.addConversationTurn('user', message);
@@ -896,10 +901,10 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             const config = vscode.workspace.getConfiguration('byteAI');
             await config.update('customInstructions', settings.customInstructions, vscode.ConfigurationTarget.Global);
             await config.update('autoContext', settings.autoContext, vscode.ConfigurationTarget.Global);
-            
+
             // Refresh settings to ensure UI is in sync
             await this.handleGetSettings();
-            
+
             vscode.window.showInformationMessage('Byte AI Settings saved successfully');
         } catch (error) {
             console.error('Error saving settings:', error);

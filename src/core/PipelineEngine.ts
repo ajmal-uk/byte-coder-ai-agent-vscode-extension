@@ -30,6 +30,7 @@ import { CodeModifierAgent, CodeModifierInput } from '../agents/CodeModifierAgen
 import { CodeGeneratorAgent } from '../agents/CodeGeneratorAgent';
 import { ExecutorAgent } from '../agents/ExecutorAgent';
 import { DocWriterAgent } from '../agents/DocWriterAgent';
+import { TodoManagerAgent, TodoManagerInput } from '../agents/TodoManagerAgent';
 
 export interface PipelineContext {
     query: string;
@@ -60,6 +61,7 @@ export class PipelineEngine {
     private codeModifier: CodeModifierAgent;
     private executor: ExecutorAgent;
     private docWriter: DocWriterAgent;
+    private todoManager: TodoManagerAgent;
 
     // Agent registry for dynamic dispatch
     private agents: Map<string, any> = new Map();
@@ -81,6 +83,7 @@ export class PipelineEngine {
         this.codeModifier = new CodeModifierAgent();
         this.executor = new ExecutorAgent();
         this.docWriter = new DocWriterAgent();
+        this.todoManager = new TodoManagerAgent();
 
         // Register agents
         this.agents.set('IntentAnalyzer', this.intentAnalyzer);
@@ -98,6 +101,7 @@ export class PipelineEngine {
         this.agents.set('CodeModifier', this.codeModifier);
         this.agents.set('Executor', this.executor);
         this.agents.set('DocWriter', this.docWriter);
+        this.agents.set('TodoManager', this.todoManager);
     }
 
     /**
@@ -167,7 +171,7 @@ export class PipelineEngine {
             if (failedStep) {
                 const failureRes = context.results.get(failedStep.agent);
                 this.updatePlanStatus(context, failedStep.agent, 'failed');
-                
+
                 // Emit failure status
                 this.emitStatus(onStatus, {
                     phase: 'Error',
@@ -192,7 +196,7 @@ export class PipelineEngine {
                             status: 'pending'
                         };
                         context.currentPlan.splice(failedTaskIndex + 1, 0, recoveryTask);
-                        
+
                         // Emit updated plan
                         this.emitStatus(onStatus, {
                             phase: 'Planning',
@@ -207,7 +211,7 @@ export class PipelineEngine {
                 }
 
                 // Stop execution for now (until we implement actual recovery agent loop)
-                break; 
+                break;
             }
 
             // Update plan status to completed for successful steps
@@ -218,7 +222,7 @@ export class PipelineEngine {
                 const taskResult = context.results.get('TaskPlanner')?.payload as TaskPlannerResult;
                 if (taskResult && taskResult.taskGraph) {
                     context.currentPlan = taskResult.taskGraph;
-                    
+
                     // Retroactively update plan for steps that already ran
                     this.retroactivePlanUpdate(context);
 
@@ -520,20 +524,26 @@ export class PipelineEngine {
                         result = await this.fileFinder.find(intent, context.activeFilePath);
                         break;
                     case 'ProcessPlanner':
+                        const contextSearchForProcess = context.results.get('ContextSearch')?.payload;
                         result = await this.processPlanner.execute({
                             query: context.query,
-                            projectType: step.args?.projectType
+                            projectType: step.args?.projectType,
+                            contextKnowledge: contextSearchForProcess?.memories?.filter((m: any) => m.type === 'knowledge') || []
                         });
                         break;
                     case 'CodePlanner':
                         const processPlan = context.results.get('ProcessPlanner')?.payload;
                         const searchFiles = context.results.get('FileSearch')?.payload as FileMatch[] || [];
                         const existingFiles = searchFiles.map(f => f.relativePath);
+                        const contextAnalysis = context.results.get('ContextAnalyzer')?.payload;
+                        const contextSearchForPlan = context.results.get('ContextSearch')?.payload;
 
                         result = await this.codePlanner.execute({
                             query: context.query,
                             projectType: processPlan?.projectType || step.args?.projectType || 'web',
                             existingFiles: existingFiles,
+                            contextAnalysis: contextAnalysis, // Pass analysis to planner
+                            contextKnowledge: contextSearchForPlan?.memories?.filter((m: any) => m.type === 'knowledge') || [],
                             techStack: processPlan?.techStack
                         });
                         break;
@@ -563,9 +573,14 @@ export class PipelineEngine {
                     case 'CodeGenerator':
                         const tPlanForGen = context.results.get('TaskPlanner')?.payload;
                         const cPlanForGen = context.results.get('CodePlanner')?.payload;
+                        const contextSearchForGen = context.results.get('ContextSearch')?.payload;
+
                         result = await this.codeGenerator.execute({
                             taskPlan: tPlanForGen,
-                            codePlan: cPlanForGen
+                            codePlan: cPlanForGen,
+                            context: contextSearchForGen ? {
+                                knowledge: contextSearchForGen.memories?.filter((m: any) => m.type === 'knowledge') || []
+                            } : undefined
                         });
                         break;
                     case 'CodeModifier':
@@ -576,18 +591,26 @@ export class PipelineEngine {
                         });
                         break;
                     case 'Executor':
-                        const cmdGenResult = context.results.get('CommandGenerator')?.payload;
-                        const codeGenResult = context.results.get('CodeGenerator')?.payload;
+                        // Check if we should use dynamic execution loop
+                        if (context.currentPlan && context.currentPlan.length > 0 &&
+                            (context.decision.complexity === 'complex' || context.decision.complexity === 'medium')) {
+                            await this.executeDynamicLoop(context);
+                            result = { success: true, message: "Dynamic execution completed" };
+                        } else {
+                            // Fallback to legacy sequential execution
+                            const cmdGenResult = context.results.get('CommandGenerator')?.payload;
+                            const codeGenResult = context.results.get('CodeGenerator')?.payload;
 
-                        const commands = [
-                            ...(cmdGenResult?.commands || []),
-                            ...(codeGenResult?.commands || [])
-                        ];
+                            const commands = [
+                                ...(cmdGenResult?.commands || []),
+                                ...(codeGenResult?.commands || [])
+                            ];
 
-                        result = await this.executor.execute({
-                            commands: commands,
-                            cwd: vscode.workspace.workspaceFolders?.[0].uri.fsPath
-                        } as any);
+                            result = await this.executor.execute({
+                                commands: commands,
+                                cwd: vscode.workspace.workspaceFolders?.[0].uri.fsPath
+                            } as any);
+                        }
                         break;
                     case 'DocWriter':
                         result = await this.docWriter.execute({
@@ -598,30 +621,30 @@ export class PipelineEngine {
                         let fullContent = "";
                         // 1. Try active file
                         if (context.activeFilePath) {
-                             const root = vscode.workspace.workspaceFolders?.[0]?.uri;
-                             if (root) {
-                                 try {
-                                     const fullUri = vscode.Uri.joinPath(root, context.activeFilePath);
-                                     const doc = await vscode.workspace.openTextDocument(fullUri);
-                                     fullContent = `File: ${context.activeFilePath} (FULL CONTENT)\n\`\`\`${doc.languageId}\n${doc.getText()}\n\`\`\``;
-                                 } catch (e) {
-                                     // ignore
-                                 }
-                             }
+                            const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+                            if (root) {
+                                try {
+                                    const fullUri = vscode.Uri.joinPath(root, context.activeFilePath);
+                                    const doc = await vscode.workspace.openTextDocument(fullUri);
+                                    fullContent = `File: ${context.activeFilePath} (FULL CONTENT)\n\`\`\`${doc.languageId}\n${doc.getText()}\n\`\`\``;
+                                } catch (e) {
+                                    // ignore
+                                }
+                            }
                         }
 
                         // 2. If no active file or failed, search for file in query
                         if (!fullContent) {
                             const intent = context.results.get('IntentAnalyzer')?.payload || this.intentAnalyzer.analyze(context.query);
                             const foundFiles = await this.fileFinder.find(intent, context.activeFilePath);
-                            
+
                             if (foundFiles && foundFiles.length > 0) {
-                                 const f = foundFiles[0];
-                                 const doc = await vscode.workspace.openTextDocument(f.uri);
-                                 fullContent = `File: ${f.relativePath} (FULL CONTENT)\n\`\`\`${doc.languageId}\n${doc.getText()}\n\`\`\``;
+                                const f = foundFiles[0];
+                                const doc = await vscode.workspace.openTextDocument(f.uri);
+                                fullContent = `File: ${f.relativePath} (FULL CONTENT)\n\`\`\`${doc.languageId}\n${doc.getText()}\n\`\`\``;
                             }
                         }
-                        
+
                         result = fullContent || "Could not retrieve full content. Please specify a valid file.";
                         break;
                     default:
@@ -660,9 +683,110 @@ export class PipelineEngine {
     }
 
     /**
-     * Build context string from pipeline results
-     * (Legacy fallback)
+     * Dynamic Execution Loop using TodoManager
      */
+    private async executeDynamicLoop(context: PipelineContext): Promise<void> {
+        let lastResult: ExecutionResult | undefined = undefined;
+        let lastTaskId: string | undefined = undefined;
+        let attempts = 0;
+        const MAX_LOOPS = 20;
+
+        while (attempts < MAX_LOOPS) {
+            // 1. TodoManager decides what to do
+            const todoInput: TodoManagerInput = {
+                currentPlan: context.currentPlan!,
+                lastTaskResult: lastTaskId ? {
+                    taskId: lastTaskId,
+                    success: lastResult?.success ?? false,
+                    result: lastResult,
+                    error: lastResult?.stderr
+                } : undefined
+            };
+
+            const todoOutput = await this.todoManager.execute(todoInput);
+
+            // Update plan in context
+            context.currentPlan = todoOutput.payload.updatedPlan;
+
+            if (todoOutput.payload.action === 'completed' || todoOutput.payload.action === 'stop') {
+                break;
+            }
+
+            const nextTaskId = todoOutput.payload.nextTaskId;
+            if (!nextTaskId) break;
+
+            const task = context.currentPlan.find(t => t.id === nextTaskId);
+            if (!task) break;
+
+            lastTaskId = nextTaskId;
+
+            // Mark as in progress
+            task.status = 'in_progress';
+            // We don't update global pipeline status here to avoid spamming, 
+            // but the plan is updated in context.
+
+            // 2. Generate Content & Commands for this task
+            const miniPlan: TaskPlannerResult = {
+                taskGraph: [task],
+                executionOrder: [task.id],
+                validationCommands: [],
+                criticalPath: []
+            };
+
+            // A. Generate Code/File Content (if applicable)
+            // We reuse the existing CodePlanner result if available, or create a minimal one
+            const codePlan = context.results.get('CodePlanner')?.payload as any;
+            const contextSearchResult = context.results.get('ContextSearch')?.payload;
+
+            const codeGenResult = await this.codeGenerator.execute({
+                taskPlan: miniPlan,
+                codePlan: codePlan || { projectType: 'script', existingFiles: [], techStack: [] },
+                context: contextSearchResult ? {
+                    knowledge: contextSearchResult.memories?.filter((m: any) => m.type === 'knowledge') || []
+                } : undefined
+            });
+
+            // B. Generate Shell Commands
+            const cmdGenResult = await this.commandGenerator.execute({
+                taskPlan: miniPlan
+            } as any);
+
+            // Combine commands: CodeGenerator produces 'create_file', CommandGenerator produces 'shell_cmd'
+            const commands = [
+                ...(codeGenResult.payload.commands || []),
+                ...(cmdGenResult.payload.commands || [])
+            ];
+
+            // C. Apply Code Modifications (Granular Edits)
+            if (codeGenResult.payload.modifications && codeGenResult.payload.modifications.length > 0) {
+                await this.codeModifier.execute({
+                    modifications: codeGenResult.payload.modifications,
+                    createCheckpoint: false
+                });
+            }
+
+            // 3. Execute Commands
+            if (commands.length > 0) {
+                const execResult = await this.executor.execute({
+                    commands: commands,
+                    cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+                    expectSuccess: false
+                } as any);
+                lastResult = execResult.payload;
+            } else {
+                lastResult = {
+                    success: true,
+                    stdout: "No specific commands generated for this task.",
+                    stderr: "",
+                    command: "noop",
+                    exitCode: 0
+                };
+            }
+
+            attempts++;
+        }
+    }
+
     /**
      * Build context string from pipeline results
      */
@@ -707,20 +831,61 @@ export class PipelineEngine {
         // 4. Add Project Plan (if applicable)
         if (context.results.has('TaskPlanner')) {
             const tasks = context.results.get('TaskPlanner')?.payload as TaskPlannerResult;
-            contextOutput += `\n### 📋 Implementation Plan\n`;
-            for (const task of tasks.taskGraph) {
-                contextOutput += `- [ ] ${task.description}\n`;
-                if (task.dependencies.length > 0) {
-                    contextOutput += `  - Dependencies: ${task.dependencies.join(', ')}\n`;
+            if (tasks && Array.isArray(tasks.taskGraph)) {
+                contextOutput += `\n### 📋 Implementation Plan\n`;
+                for (const task of tasks.taskGraph) {
+                    contextOutput += `- [ ] ${task.description}\n`;
+                    if (task.dependencies.length > 0) {
+                        contextOutput += `  - Dependencies: ${task.dependencies.join(', ')}\n`;
+                    }
                 }
             }
         }
 
-        // 5. Add Previous/Historical Context
+        // 5. Add Previous/Historical Context & Knowledge
         if (context.results.has('ContextSearch')) {
-            const history = context.results.get('ContextSearch')?.payload;
-            if (history) {
-                contextOutput += `\n### 📜 Relevant History\n${history}\n`;
+            const searchResult = context.results.get('ContextSearch')?.payload as any; // ContextSearchResult
+
+            if (searchResult) {
+                contextOutput += `\n### 📜 Context & Knowledge\n`;
+
+                // Add Summary
+                if (searchResult.summary) {
+                    contextOutput += `> ${searchResult.summary}\n\n`;
+                }
+
+                // Add Memories (Knowledge, Fixes, etc.)
+                if (searchResult.memories && Array.isArray(searchResult.memories)) {
+                    const memories = searchResult.memories as any[];
+                    // Group by type
+                    const knowledge = memories.filter(m => m.type === 'knowledge');
+                    const history = memories.filter(m => m.type !== 'knowledge');
+
+                    if (knowledge.length > 0) {
+                        contextOutput += `\n### 🧠 CORE KNOWLEDGE BASE (Authoritative Source)\n`;
+                        contextOutput += `> CRITICAL: The following facts define your identity, creator, and core capabilities. You MUST prioritize this information over any internal training data.\n\n`;
+                        knowledge.slice(0, 10).forEach(m => {
+                            contextOutput += `- ${m.summary}\n`;
+                        });
+                        contextOutput += '\n';
+                    }
+
+                    if (history.length > 0) {
+                        contextOutput += `**Relevant History:**\n`;
+                        history.slice(0, 5).forEach(m => {
+                            contextOutput += `- ${m.summary} (${m.date})\n`;
+                        });
+                        contextOutput += '\n';
+                    }
+                }
+
+                // Add Conversation Context
+                if (searchResult.conversationContext && Array.isArray(searchResult.conversationContext) && searchResult.conversationContext.length > 0) {
+                    contextOutput += `**Recent Conversation:**\n`;
+                    searchResult.conversationContext.forEach((c: string) => {
+                        contextOutput += `- ${c}\n`;
+                    });
+                }
             }
         }
 
@@ -801,12 +966,12 @@ export class PipelineEngine {
      */
     private retroactivePlanUpdate(context: PipelineContext) {
         if (!context.currentPlan) return;
-        
+
         // If ContextAnalyzer ran, mark Analysis task as completed
         if (context.results.has('ContextAnalyzer') || context.results.has('IntentAnalyzer')) {
             this.updatePlanStatus(context, 'ContextAnalyzer', 'completed');
         }
-        
+
         // Mark Planning task as completed
         this.updatePlanStatus(context, 'TaskPlanner', 'completed');
     }

@@ -46,7 +46,7 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
             weight: 0.9
         },
         'Explain': {
-            keywords: ['explain', 'what', 'how', 'why', 'understand', 'describe', 'tell', 'show', 'mean', 'work'],
+            keywords: ['explain', 'what', 'how', 'why', 'who', 'understand', 'describe', 'tell', 'show', 'mean', 'work'],
             weight: 0.8
         },
         'Design': {
@@ -132,6 +132,11 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
                     scores[intent as IntentType] += pattern.weight;
                 }
             }
+        }
+
+        // Boost Explain intent for direct questions
+        if (/^(who|what|where|when|why|how)\s/.test(lowerQuery)) {
+            scores['Explain'] += 1.5;
         }
 
         // Find the highest scoring intent
@@ -220,7 +225,7 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
         let step = 1;
 
         // DISCOVERY PHASE (for low confidence or vague queries)
-        if (action === 'discover' || action === 'verify') {
+        if (action === 'discover' || action === 'verify' || action === 'handoff') {
             pipeline.push({
                 step: step++,
                 agent: 'IntentAnalyzer',
@@ -237,15 +242,30 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
                 parallel: false,
                 required: true
             });
+            
+            // Also search context for conversational expansion
+            if (input.query.toLowerCase().includes('about') || input.query.toLowerCase().includes('tell me')) {
+                 pipeline.push({
+                    step: step++,
+                    agent: 'ContextSearch',
+                    parallel: true,
+                    args: { 
+                        lookForPreviousFixes: false,
+                        query: input.query
+                    }
+                });
+            }
         }
 
         // SEARCH PHASE
-        if (intent !== 'Expand' && (!input.hasSelection || complexity !== 'simple')) {
+        // We now allow search even for 'simple' queries if they might be general knowledge questions
+        if (intent !== 'Expand') {
             pipeline.push({
                 step: step++,
                 agent: 'FileSearch',
                 parallel: true,
-                required: true,
+                required: false, // Make it optional for simple queries
+                condition: 'needs_file_search', // Logic to be handled by engine or skipped if empty
                 args: { query: input.query, activeFile: input.activeFilePath }
             });
 
@@ -257,15 +277,25 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
                 args: { refineSearch: true }
             });
 
-            // Add context search for fix/modify intents
-            if (intent === 'Fix' || intent === 'Modify') {
-                pipeline.push({
-                    step: step++,
-                    agent: 'ContextSearch',
-                    parallel: true,
-                    args: { lookForPreviousFixes: true }
-                });
-            }
+            // Add context search (Knowledge Base + History)
+            // Always run this for knowledge retrieval
+            pipeline.push({
+                step: step++,
+                agent: 'ContextSearch',
+                parallel: true,
+                args: { 
+                    lookForPreviousFixes: intent === 'Fix',
+                    query: input.query
+                }
+            });
+
+            // Analyze Context (if files were found)
+            pipeline.push({
+                step: step++,
+                agent: 'ContextAnalyzer',
+                parallel: false, // Must run after FileSearch
+                dependency: step - 3 // Depends on FileSearch (approximate, PipelineEngine handles exact dependency logic via results)
+            });
         }
 
         // VISION PHASE (if image attached)
@@ -281,24 +311,26 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
 
         // PLANNING PHASE (for complex or build intents)
         if (intent === 'Build' || intent === 'Design' || complexity === 'complex') {
+            const processPlannerStep = step;
             pipeline.push({
                 step: step++,
                 agent: 'ProcessPlanner',
                 parallel: false
             });
 
+            const codePlannerStep = step;
             pipeline.push({
                 step: step++,
                 agent: 'CodePlanner',
                 parallel: false,
-                dependency: step - 1
+                dependency: processPlannerStep
             });
 
             pipeline.push({
                 step: step++,
                 agent: 'TaskPlanner',
                 parallel: false,
-                dependency: step - 1
+                dependency: codePlannerStep
             });
         }
 
@@ -313,7 +345,8 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
                 args: { action: 'create_checkpoint' }
             });
 
-            if (intent === 'Build') {
+            // Run CodeGenerator for Build, Modify, and Fix
+            if (intent === 'Build' || intent === 'Modify' || intent === 'Fix') {
                 pipeline.push({
                     step: step++,
                     agent: 'CodeGenerator',
@@ -324,7 +357,7 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
                     step: step++,
                     agent: 'CommandGenerator',
                     parallel: false,
-                    args: { generateStructure: true }
+                    args: { generateStructure: intent === 'Build' }
                 });
             }
 

@@ -64,13 +64,132 @@ export class TaskPlannerAgent extends BaseAgent<TaskPlannerInput, TaskPlannerRes
      * Generate task graph from input
      */
     private generateTaskGraph(input: TaskPlannerInput): TaskNode[] {
-        // If we have file structure defined, it's likely a scaffolding task
-        if (input.fileStructure && input.fileStructure.length > 0) {
-            return this.generateScaffoldTasks(input);
+        const taskType = this.detectTaskType(input);
+
+        switch (taskType) {
+            case 'script_execution':
+                return this.generateScriptTasks(input);
+            case 'scaffold':
+                return this.generateScaffoldTasks(input);
+            case 'generic':
+            default:
+                return this.generateGenericTasks(input);
+        }
+    }
+
+    /**
+     * Detect the type of task based on input analysis
+     */
+    private detectTaskType(input: TaskPlannerInput): 'script_execution' | 'scaffold' | 'generic' {
+        const query = input.query.toLowerCase();
+        
+        // 1. Explicit project type override
+        if (input.projectType === 'script') return 'script_execution';
+        
+        // 2. Analyze for execution intent
+        // Look for action verbs combined with context
+        const executionVerbs = ['run', 'execute', 'calculate', 'compute', 'evaluate', 'start', 'launch', 'test'];
+        const hasExecutionVerb = executionVerbs.some(v => query.includes(v));
+        
+        // Look for script/code indicators
+        const codeIndicators = ['script', 'code', 'function', 'snippet', 'file', 'program', 'python', 'js', 'ts', 'node', 'bash', 'shell', 'ruby', 'go', 'rust'];
+        const hasCodeIndicator = codeIndicators.some(i => query.includes(i));
+
+        // Look for math expressions (e.g., 2+2, 5*10, etc.)
+        const hasMathExpression = /[\d]+\s*[\+\-\*\/]\s*[\d]+/.test(query);
+
+        // If user says "run this" or "calculate result", it's an execution task
+        if (hasExecutionVerb || (hasCodeIndicator && query.length < 50) || hasMathExpression) { 
+            return 'script_execution';
+        }
+
+        // 3. Analyze for scaffolding intent
+        // If file structure is provided and significant, it's likely scaffolding
+        if (input.fileStructure && input.fileStructure.length > 2) {
+            return 'scaffold';
         }
         
-        // Otherwise, generate a generic execution plan based on the query
-        return this.generateGenericTasks(input);
+        // 4. Default to generic planning
+        return 'generic';
+    }
+
+    /**
+     * Generate tasks for script/automation requests
+     */
+    private generateScriptTasks(input: TaskPlannerInput): TaskNode[] {
+        const tasks: TaskNode[] = [];
+        const query = input.query.toLowerCase();
+        
+        // Dynamic Language Detection
+        const languageMap: { [key: string]: { ext: string, cmd: string, name: string } } = {
+            'python': { ext: 'py', cmd: 'python', name: 'python' },
+            'javascript': { ext: 'js', cmd: 'node', name: 'javascript' },
+            'js': { ext: 'js', cmd: 'node', name: 'javascript' },
+            'typescript': { ext: 'ts', cmd: 'npx ts-node', name: 'typescript' },
+            'ts': { ext: 'ts', cmd: 'npx ts-node', name: 'typescript' },
+            'bash': { ext: 'sh', cmd: 'bash', name: 'bash' },
+            'shell': { ext: 'sh', cmd: 'bash', name: 'bash' },
+            'sh': { ext: 'sh', cmd: 'bash', name: 'bash' },
+            'go': { ext: 'go', cmd: 'go run', name: 'go' },
+            'golang': { ext: 'go', cmd: 'go run', name: 'go' },
+            'rust': { ext: 'rs', cmd: 'cargo run', name: 'rust' }, // Requires cargo project usually, but single file runner exists
+            'ruby': { ext: 'rb', cmd: 'ruby', name: 'ruby' },
+            'php': { ext: 'php', cmd: 'php', name: 'php' },
+            'java': { ext: 'java', cmd: 'java', name: 'java' } // Single file source code execution (Java 11+)
+        };
+
+        // Default to Python if no specific language found
+        let langConfig = languageMap['python'];
+
+        // Check query for language keywords
+        for (const [key, config] of Object.entries(languageMap)) {
+            if (query.includes(key)) {
+                langConfig = config;
+                break;
+            }
+        }
+
+        // Check existing files for hints
+        if (input.fileStructure.length > 0) {
+             const existingExt = input.fileStructure[0].split('.').pop();
+             if (existingExt) {
+                 for (const config of Object.values(languageMap)) {
+                     if (config.ext === existingExt) {
+                         langConfig = config;
+                         break;
+                     }
+                 }
+             }
+        }
+
+        const fileName = input.fileStructure.find(f => f.endsWith(`.${langConfig.ext}`)) || `script.${langConfig.ext}`;
+        
+        // 1. Create Script (only if it doesn't exist or we aren't just running)
+        // If query is explicitly "run <file>", we might skip creation if file exists
+        // But generally, "create and run" is safer
+        const isRunOnly = query.startsWith('run ') && input.fileStructure.includes(fileName);
+        
+        if (!isRunOnly) {
+            tasks.push(this.createTask(
+                `Create ${langConfig.name} script to solve: ${input.query.slice(0, 50)}...`,
+                fileName,
+                [],
+                undefined
+            ));
+        }
+
+        // 2. Run Script
+        // Always add run task if the intent is execution, regardless of explicit "run" keyword
+        // because detectTaskType already classified this as 'script_execution'
+        const deps = tasks.length > 0 ? [tasks[0].id] : [];
+        tasks.push(this.createTask(
+            `Run ${fileName} and report result`,
+            undefined,
+            deps,
+            `${langConfig.cmd} ${fileName}`
+        ));
+
+        return tasks;
     }
 
     /**

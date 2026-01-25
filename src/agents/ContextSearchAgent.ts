@@ -4,6 +4,8 @@
  */
 
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { BaseAgent, AgentOutput, ContextMemory } from '../core/AgentTypes';
 
 export interface ContextSearchInput {
@@ -36,6 +38,26 @@ export class ContextSearchAgent extends BaseAgent<ContextSearchInput, ContextSea
         specificity: 0.1
     };
 
+    // Synonyms for semantic matching
+    private readonly SYNONYMS: { [key: string]: string[] } = {
+        'creator': ['founder', 'owner', 'author', 'maker', 'developer', 'ajmal', 'ajmal uk'],
+        'created': ['founded', 'made', 'built', 'developed', 'founder', 'creator', 'origin'],
+        'create': ['build', 'develop', 'make', 'found', 'originate'],
+        'maker': ['founder', 'creator', 'owner', 'developer'],
+        'owner': ['founder', 'creator', 'holder', 'proprietor', 'ajmal'],
+        'who': ['founder', 'creator', 'owner', 'developer', 'person', 'identity'],
+        'identity': ['who', 'creator', 'founder', 'owner', 'developer'],
+        'company': ['uthakkan', 'studio', 'business', 'organization', 'firm'],
+        'uthakkan': ['company', 'studio', 'creator', 'founder'],
+        'contact': ['email', 'phone', 'address', 'reach', 'mail', 'telegram', 'whatsapp'],
+        'mail': ['email', 'inbox', 'gmail'],
+        'site': ['website', 'url', 'link', 'page', 'portal'],
+        'web': ['website', 'url', 'internet', 'online'],
+        'link': ['url', 'website', 'address'],
+        'job': ['career', 'hiring', 'freelance', 'work', 'project'],
+        'hire': ['freelance', 'job', 'work', 'gig']
+    };
+
     constructor(private context?: vscode.ExtensionContext) {
         super({ name: 'ContextSearch', timeout: 5000 });
     }
@@ -59,10 +81,14 @@ export class ContextSearchAgent extends BaseAgent<ContextSearchInput, ContextSea
                 memories.push(...workspaceMemories);
             }
 
-            // 4. Find relevant patterns
+            // 4. Search Knowledge Base (Static Data)
+            const knowledgeMemories = await this.searchKnowledgeBase(input.query);
+            memories.push(...knowledgeMemories);
+
+            // 5. Find relevant patterns
             const patterns = this.findRelevantPatterns(input.query);
 
-            // 5. Score and sort memories
+            // 6. Score and sort memories
             const scoredMemories = this.scoreMemories(memories, input.query, input.recencyDays ?? 7);
             const topMemories = scoredMemories.slice(0, input.maxResults ?? 5);
 
@@ -200,6 +226,103 @@ export class ContextSearchAgent extends BaseAgent<ContextSearchInput, ContextSea
     }
 
     /**
+     * Search static knowledge base (JSON)
+     */
+    private async searchKnowledgeBase(query: string): Promise<ContextMemory[]> {
+        const memories: ContextMemory[] = [];
+        const queryTerms = this.extractTerms(query);
+
+        try {
+            let knowledgePath: string | undefined;
+
+            // 1. Priority: Extension root data folder (packaged)
+            if (this.context) {
+                const extensionDataPath = path.join(this.context.extensionPath, 'data', 'knowledge', 'uthakkan_data.json');
+                if (fs.existsSync(extensionDataPath)) {
+                    knowledgePath = extensionDataPath;
+                }
+            }
+
+            // 2. Fallback: Workspace root (for development)
+            if (!knowledgePath) {
+                const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                if (workspaceRoot) {
+                    // Check new location first
+                    const devPathNew = path.join(workspaceRoot, 'data', 'knowledge', 'uthakkan_data.json');
+                    const devPathOld = path.join(workspaceRoot, 'src', 'data', 'knowledge', 'uthakkan_data.json');
+                    
+                    if (fs.existsSync(devPathNew)) {
+                        knowledgePath = devPathNew;
+                    } else if (fs.existsSync(devPathOld)) {
+                        knowledgePath = devPathOld;
+                    }
+                }
+            }
+
+            // 2. If not found, search the workspace for the file
+            if (!knowledgePath) {
+                const files = await vscode.workspace.findFiles('**/uthakkan_data.json', '**/node_modules/**', 1);
+                if (files.length > 0) {
+                    knowledgePath = files[0].fsPath;
+                }
+            }
+
+            if (!knowledgePath || !fs.existsSync(knowledgePath)) {
+                // Silent return if not found - might not be a UTHAKKAN project
+                return [];
+            }
+
+            const data = JSON.parse(fs.readFileSync(knowledgePath, 'utf8'));
+
+            // Recursive search function
+            const searchObj = (obj: any, prefix: string = '') => {
+                if (typeof obj === 'string') {
+                    const relevance = this.calculateTermRelevance(obj, queryTerms);
+                    if (relevance > 0.4) { // Higher threshold for static knowledge
+                        memories.push({
+                            type: 'knowledge',
+                            date: new Date(), // Always fresh
+                            summary: `${prefix}: ${obj}`,
+                            relevance: relevance * 1.2, // Boost knowledge relevance
+                            data: { source: 'knowledge_base' }
+                        });
+                    }
+                } else if (Array.isArray(obj)) {
+                    obj.forEach((item, index) => searchObj(item, `${prefix}[${index}]`));
+                } else if (typeof obj === 'object' && obj !== null) {
+                    for (const [key, value] of Object.entries(obj)) {
+                        // Boost relevance if key matches query
+                        const keyRelevance = this.calculateTermRelevance(key, queryTerms);
+                        const newPrefix = prefix ? `${prefix}.${key}` : key;
+
+                        // Lowered threshold to 0.5 to catch partial matches like "products" in "what are products"
+                        if (keyRelevance >= 0.5) {
+                            // If key matches strongly, include the whole object summary
+                            const contentStr = typeof value === 'string' ? value : JSON.stringify(value).slice(0, 200);
+                            memories.push({
+                                type: 'knowledge',
+                                date: new Date(),
+                                summary: `${newPrefix}: ${contentStr}`,
+                                relevance: keyRelevance * 1.5,
+                                data: value
+                            });
+                        }
+
+                        searchObj(value, newPrefix);
+                    }
+                }
+            };
+
+            searchObj(data, 'UTHAKKAN');
+
+        } catch (error) {
+            console.error('Error searching knowledge base:', error);
+        }
+
+        return memories;
+    }
+
+    /**
      * Score memories by relevance, recency, and specificity
      */
     private scoreMemories(memories: ContextMemory[], query: string, recencyDays: number): ContextMemory[] {
@@ -226,10 +349,11 @@ export class ContextSearchAgent extends BaseAgent<ContextSearchInput, ContextSea
      * Extract searchable terms from query
      */
     private extractTerms(query: string): string[] {
+        // Extended stop words list to filter out question words and pronouns for better keyword density
         const stopWords = new Set(['the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been',
             'have', 'has', 'do', 'does', 'did', 'will', 'would', 'could', 'should',
-            'what', 'how', 'why', 'when', 'where', 'which', 'who', 'this', 'that',
-            'it', 'its', 'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from']);
+            'this', 'that', 'it', 'its', 'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from',
+            'your', 'my', 'our', 'their', 'you', 'me']);
 
         return query
             .toLowerCase()
@@ -239,19 +363,48 @@ export class ContextSearchAgent extends BaseAgent<ContextSearchInput, ContextSea
     }
 
     /**
-     * Calculate relevance score based on term matches
+     * Calculate relevance of text to query terms
      */
     private calculateTermRelevance(text: string, terms: string[]): number {
+        if (!text) return 0;
         const lowerText = text.toLowerCase();
         let matches = 0;
 
+        // Identity query detection for boosting
+        const identityTerms = ['who', 'created', 'owner', 'founder', 'creator', 'uthakkan', 'ajmal'];
+        const isIdentityQuery = terms.some(t => identityTerms.includes(t));
+
         for (const term of terms) {
+            let termMatched = false;
+
+            // 1. Direct match
             if (lowerText.includes(term)) {
+                termMatched = true;
+            }
+            // 2. Synonym match
+            else {
+                const synonyms = this.SYNONYMS[term] || [];
+                for (const syn of synonyms) {
+                    if (lowerText.includes(syn)) {
+                        termMatched = true;
+                        break;
+                    }
+                }
+            }
+
+            if (termMatched) {
                 matches++;
             }
         }
 
-        return terms.length > 0 ? matches / terms.length : 0;
+        let relevance = terms.length > 0 ? matches / terms.length : 0;
+
+        // Boost identity relevance
+        if (isIdentityQuery && relevance > 0) {
+            relevance *= 1.5;
+        }
+
+        return Math.min(1.0, relevance);
     }
 
     /**

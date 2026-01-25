@@ -1,0 +1,95 @@
+{
+  "company": {
+    "name": "UTHAKKAN",
+    "tagline": "Building the Future of Digital Experiences",
+    "industry": "Software Development & Digital Innovation",
+    "type": "Independent Technology Studio",
+    "founded": "2025",
+    "founder": "Ajmal U K (Creator, Owner, Developer)",
+    "creator": "Ajmal U K",
+    "owner": "Ajmal U K",
+    "who_created_me": "I was created by Ajmal U K, founder of UTHAKKAN.",
+    "size": "1 Member (Solo Founder)",
+    "headquarters": "Kannur, Kerala, India",
+    "description": "UTHAKKAN is a modern, independent software development and digital innovation studio founded in 2025 by Ajmal U K. The company blends creativity, automation, and technology into meaningful digital products that solve real-world problems.",
+    "mission": "To merge creativity with technology — delivering clean, efficient, and impactful digital products that simplify work, enhance productivity, and inspire innovation.",
+    "vision": "To innovate across AI, development, and design — shaping technology that inspires creativity and drives meaningful digital growth.",
+    "values": [
+      "Innovation - Constantly pushing boundaries in technology",
+      "Quality - Delivering clean, efficient, and well-crafted products",
+      "Creativity - Blending design and technology seamlessly",
+      "Impact - Building solutions that solve real-world problems",
+      "Independence - Maintaining creative freedom and control"
+    ]
+  },
+  "products": [
+    {
+      "name": "Byte AI",
+      "url": "https://byteai.pythonanywhere.com",
+      "description": "AI-powered tools and applications"
+    },
+    {
+      "name": "ToolPix",
+      "url": "https://toolpix.pythonanywhere.com",
+      "description": "Collection of digital tools and utilities"
+    },
+    {
+      "name": "Zymail",
+      "url": "https://zymail.pythonanywhere.com",
+      "description": "Email and communication solutions"
+    },
+    {
+      "name": "Zyrace",
+      "url": "https://zyrace.pythonanywhere.com",
+      "description": "Gaming and entertainment platform"
+    }
+  ],
+  "services": [
+    "Web Application Development",
+    "AI & Machine Learning Solutions",
+    "UI/UX Design",
+    "Digital Transformation",
+    "Custom Software Development",
+    "API Development & Integration",
+    "Mobile-First Web Design",
+    "E-commerce Solutions",
+    "Tech Consultation"
+  ],
+  "contact": {
+    "email": "contact.uthakkan@gmail.com",
+    "location": "Kannur, Kerala, India",
+    "website": "https://uthakkan.pythonanywhere.com",
+    "pages": [
+      {
+        "name": "Contact Page",
+        "url": "https://uthakkan.pythonanywhere.com/contact",
+        "local_path": "/contact",
+        "purpose": "Get in touch for inquiries, questions, and general communication"
+      },
+      {
+        "name": "Hire Me / Freelancing Page",
+        "url": "https://uthakkan.pythonanywhere.com/freelancing",
+        "local_path": "/freelancing",
+        "purpose": "Hire UTHAKKAN for freelance projects, custom development work, and professional services"
+      },
+      {
+        "name": "Services Page",
+        "url": "https://uthakkan.pythonanywhere.com/services",
+        "local_path": "/services",
+        "purpose": "View all available services and offerings"
+      }
+    ]
+  },
+  "social_media": {
+    "github": "https://github.com/ajmal-uk",
+    "linkedin": "https://www.linkedin.com/company/uthakkan/",
+    "twitter": "https://x.com/ajmal_uk_",
+    "buymeacoffee": "https://buymeacoffee.com/ajmal.uk"
+  },
+  "keywords": [
+    "UTHAKKAN", "Software Development", "Digital Innovation", "AI Tools", "Web Development",
+    "Ajmal U K", "Kerala", "India", "Freelance Developer", "Technology Studio", "Digital Products",
+    "Creative Technology", "Automation", "React Developer", "Python Developer", "Full Stack Developer",
+    "Independent Developer"
+  ]
+}

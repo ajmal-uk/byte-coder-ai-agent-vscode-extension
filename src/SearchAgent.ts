@@ -9,6 +9,8 @@ import {
     FileFinderAgent,
     CodeExtractorAgent,
     RelevanceScorerAgent,
+    ContextSearchAgent,
+    ContextSearchResult,
     SearchIntent,
     ScoredResult,
     ScoredChunk
@@ -26,6 +28,7 @@ export class SearchAgent {
     private fileFinder: FileFinderAgent;
     private codeExtractor: CodeExtractorAgent;
     private relevanceScorer: RelevanceScorerAgent;
+    private contextSearch: ContextSearchAgent;
 
     // Caching
     private projectMapCache: { value: string; time: number } | null = null;
@@ -36,6 +39,7 @@ export class SearchAgent {
         this.fileFinder = new FileFinderAgent();
         this.codeExtractor = new CodeExtractorAgent();
         this.relevanceScorer = new RelevanceScorerAgent();
+        this.contextSearch = new ContextSearchAgent();
     }
 
     /**
@@ -56,34 +60,50 @@ export class SearchAgent {
             const keywordPreview = intent.keywords.slice(0, 4).join(', ');
             this.emitStatus(onStatus, 'Analyzing', `Found keywords: ${keywordPreview}`);
 
+            // Phase 1.5: Search Context & Knowledge
+            this.emitStatus(onStatus, 'Context Search', 'Checking knowledge base...');
+            const contextResult = await this.contextSearch.execute({
+                query,
+                lookForPreviousFixes: intent.queryType === 'fix'
+            });
+
             // Phase 2: Find relevant files
             this.emitStatus(onStatus, 'Searching', 'Scanning workspace for relevant files...');
             const fileMatches = await this.fileFinder.find(intent, activeFilePath);
 
-            if (fileMatches.length === 0) {
-                this.emitStatus(onStatus, 'No Results', 'No relevant files found.');
+            // If no files AND no context found, return empty
+            if (fileMatches.length === 0 && contextResult.payload.memories.length === 0) {
+                this.emitStatus(onStatus, 'No Results', 'No relevant files or knowledge found.');
                 return '';
             }
 
-            this.emitStatus(onStatus, 'Searching', `Found ${fileMatches.length} relevant files`);
+            this.emitStatus(onStatus, 'Searching', `Found ${fileMatches.length} files and ${contextResult.payload.memories.length} memories`);
 
             // Phase 3: Extract code from files (parallel)
-            this.emitStatus(onStatus, 'Extracting', 'Reading and analyzing code...');
-            const extractionPromises = fileMatches.map(file =>
-                this.codeExtractor.extract(file.uri.fsPath, file.relativePath, intent)
-            );
-            const extractions = await Promise.all(extractionPromises);
+            let extractions: any[] = [];
+            if (fileMatches.length > 0) {
+                this.emitStatus(onStatus, 'Extracting', 'Reading and analyzing code...');
+                const extractionPromises = fileMatches.map(file =>
+                    this.codeExtractor.extract(file.uri.fsPath, file.relativePath, intent)
+                );
+                extractions = await Promise.all(extractionPromises);
+            }
 
             // Phase 4: Score and rank results
-            this.emitStatus(onStatus, 'Ranking', 'Scoring relevance...');
-            const scoredResults = this.relevanceScorer.score(extractions, fileMatches, intent);
+            let scoredResults: ScoredResult[] = [];
+            let selection = new Map<string, ScoredChunk[]>();
+            
+            if (extractions.length > 0) {
+                this.emitStatus(onStatus, 'Ranking', 'Scoring relevance...');
+                scoredResults = this.relevanceScorer.score(extractions, fileMatches, intent);
 
-            // Phase 5: Select best chunks within budget
-            const selection = this.relevanceScorer.selectForContext(scoredResults);
+                // Phase 5: Select best chunks within budget
+                selection = this.relevanceScorer.selectForContext(scoredResults);
+            }
 
             // Phase 6: Format output
             this.emitStatus(onStatus, 'Formatting', 'Building context...');
-            const context = this.formatContext(scoredResults, selection, intent, startTime);
+            const context = this.formatContext(scoredResults, selection, intent, startTime, contextResult.payload);
 
             const elapsed = Date.now() - startTime;
             this.emitStatus(onStatus, 'Done', `Context ready (${elapsed}ms)`);
@@ -116,9 +136,10 @@ export class SearchAgent {
         results: ScoredResult[],
         selection: Map<string, ScoredChunk[]>,
         intent: SearchIntent,
-        startTime: number
+        startTime: number,
+        contextResult?: ContextSearchResult
     ): string {
-        if (selection.size === 0) {
+        if (selection.size === 0 && (!contextResult || contextResult.memories.length === 0)) {
             return '';
         }
 
@@ -131,6 +152,24 @@ export class SearchAgent {
         }
         lines.push(`Files analyzed: ${results.length}`);
         lines.push('');
+
+        // Add Context/Knowledge
+        if (contextResult && contextResult.memories.length > 0) {
+            lines.push('### 🧠 Knowledge & Memories');
+            const knowledge = contextResult.memories.filter(m => m.type === 'knowledge');
+            const others = contextResult.memories.filter(m => m.type !== 'knowledge');
+
+            if (knowledge.length > 0) {
+                lines.push('**Knowledge Base:**');
+                knowledge.slice(0, 5).forEach(m => lines.push(`- ${m.summary}`));
+                lines.push('');
+            }
+            if (others.length > 0) {
+                lines.push('**History:**');
+                others.slice(0, 3).forEach(m => lines.push(`- ${m.summary}`));
+                lines.push('');
+            }
+        }
 
         let fileIndex = 0;
         for (const [relativePath, chunks] of selection) {

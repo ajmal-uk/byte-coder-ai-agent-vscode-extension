@@ -7,8 +7,12 @@ import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import { BaseAgent, AgentOutput, ExecutionResult, FileLocation, CodeModification } from '../core/AgentTypes';
 
+import * as fs from 'fs';
+import * as path from 'path';
+
 export interface ExecutorInput {
-    command: string;
+    command?: string;
+    commands?: any[]; // Supports strings, CommandSpecs, or operation objects
     cwd?: string;
     timeout?: number;
     expectSuccess?: boolean;
@@ -17,6 +21,7 @@ export interface ExecutorInput {
 
 export interface ExecutorOutput extends ExecutionResult {
     duration: number;
+    results?: ExecutionResult[]; // For multiple commands
     parsed?: {
         errorType: string;
         errorMessage: string;
@@ -55,7 +60,80 @@ export class ExecutorAgent extends BaseAgent<ExecutorInput, ExecutorOutput> {
         const startTime = Date.now();
 
         try {
-            const result = await this.runCommand(input);
+            let result: ExecutorOutput;
+
+            // Handle multiple commands
+            if (input.commands && input.commands.length > 0) {
+                const results: ExecutionResult[] = [];
+                let overallSuccess = true;
+                let combinedStdout = '';
+                let combinedStderr = '';
+
+                for (const cmd of input.commands) {
+                    let cmdResult: ExecutorOutput;
+
+                    if (typeof cmd === 'string') {
+                        cmdResult = await this.runCommand({ ...input, command: cmd });
+                    } else if (cmd.operation === 'create_file') {
+                        // Handle file creation directly
+                        try {
+                             // Ensure directory exists
+                             const dir = path.dirname(cmd.target);
+                             if (!fs.existsSync(dir)) {
+                                 fs.mkdirSync(dir, { recursive: true });
+                             }
+                             fs.writeFileSync(cmd.target, cmd.content);
+                             cmdResult = {
+                                 command: `create_file ${cmd.target}`,
+                                 exitCode: 0,
+                                 stdout: `Created file: ${cmd.target}`,
+                                 stderr: '',
+                                 success: true,
+                                 duration: 0,
+                                 recoveryOptions: []
+                             };
+                        } catch (e) {
+                             cmdResult = {
+                                 command: `create_file ${cmd.target}`,
+                                 exitCode: 1,
+                                 stdout: '',
+                                 stderr: (e as Error).message,
+                                 success: false,
+                                 duration: 0,
+                                 recoveryOptions: []
+                             };
+                        }
+                    } else if (cmd.command) {
+                        // CommandSpec object
+                        cmdResult = await this.runCommand({ ...input, command: cmd.command });
+                    } else {
+                        // Unknown format
+                        continue;
+                    }
+
+                    results.push(cmdResult);
+                    combinedStdout += cmdResult.stdout + '\n';
+                    combinedStderr += cmdResult.stderr + '\n';
+                    if (!cmdResult.success) overallSuccess = false;
+                }
+
+                result = {
+                    command: 'multiple_commands',
+                    exitCode: overallSuccess ? 0 : 1,
+                    stdout: combinedStdout,
+                    stderr: combinedStderr,
+                    success: overallSuccess,
+                    duration: Date.now() - startTime,
+                    recoveryOptions: [],
+                    results
+                };
+
+            } else if (input.command) {
+                // Single command
+                result = await this.runCommand(input);
+            } else {
+                throw new Error("No command provided to Executor");
+            }
 
             // Parse errors if requested
             if (input.parseErrors && !result.success) {
@@ -72,8 +150,8 @@ export class ExecutorAgent extends BaseAgent<ExecutorInput, ExecutorOutput> {
                 startTime,
                 {
                     reasoning: result.success
-                        ? `Command completed successfully in ${result.duration}ms`
-                        : `Command failed with exit code ${result.exitCode}: ${result.parsed?.errorType || 'Unknown error'}`
+                        ? `Command(s) completed successfully in ${result.duration}ms`
+                        : `Command(s) failed with exit code ${result.exitCode}: ${result.parsed?.errorType || 'Unknown error'}`
                 }
             );
 
@@ -91,24 +169,30 @@ export class ExecutorAgent extends BaseAgent<ExecutorInput, ExecutorOutput> {
             const cwd = input.cwd || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
             const timeout = input.timeout || this.timeout;
 
-            const child = cp.exec(input.command, {
+            // Ensure command is a string
+            const cmdString = input.command || 'echo "No command provided"';
+
+            const child = cp.exec(cmdString, {
                 cwd,
                 timeout,
                 maxBuffer: 10 * 1024 * 1024,  // 10MB buffer
                 env: { ...process.env, FORCE_COLOR: '0' }  // Disable color codes
-            }, (error, stdout, stderr) => {
+            }, (error: any, stdout: string | Buffer, stderr: string | Buffer) => {
                 const duration = Date.now() - startTime;
                 const exitCode = error ? (error as any).code || 1 : 0;
                 const success = input.expectSuccess !== false ? exitCode === 0 : true;
 
+                const stdoutStr = typeof stdout === 'string' ? stdout : stdout.toString();
+                const stderrStr = typeof stderr === 'string' ? stderr : stderr.toString();
+
                 // Try to extract error location
-                const errorLocation = this.extractErrorLocation(stderr || stdout);
+                const errorLocation = this.extractErrorLocation(stderrStr || stdoutStr);
 
                 resolve({
-                    command: input.command,
+                    command: cmdString,
                     exitCode,
-                    stdout: stdout.slice(0, 5000),  // Limit output size
-                    stderr: stderr.slice(0, 5000),
+                    stdout: stdoutStr.slice(0, 5000),  // Limit output size
+                    stderr: stderrStr.slice(0, 5000),
                     success,
                     duration,
                     errorLocation,
@@ -118,7 +202,13 @@ export class ExecutorAgent extends BaseAgent<ExecutorInput, ExecutorOutput> {
 
             // Handle timeout
             setTimeout(() => {
-                child.kill();
+                if (child && !child.killed) {
+                    try {
+                        child.kill();
+                    } catch (e) {
+                        // ignore
+                    }
+                }
             }, timeout);
         });
     }
@@ -271,31 +361,32 @@ export class ExecutorAgent extends BaseAgent<ExecutorInput, ExecutorOutput> {
         return new Promise((resolve) => {
             const startTime = Date.now();
             const cwd = input.cwd || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+            const cmdString = input.command || 'echo "No command provided"';
 
             let stdout = '';
             let stderr = '';
 
-            const child = cp.spawn(input.command, {
+            const child = cp.spawn(cmdString, {
                 shell: true,
                 cwd,
                 env: { ...process.env, FORCE_COLOR: '0' }
             });
 
-            child.stdout.on('data', (data) => {
+            child.stdout.on('data', (data: Buffer) => {
                 const str = data.toString();
                 stdout += str;
                 onStdout(str);
             });
 
-            child.stderr.on('data', (data) => {
+            child.stderr.on('data', (data: Buffer) => {
                 const str = data.toString();
                 stderr += str;
                 onStderr(str);
             });
 
-            child.on('close', (code) => {
+            child.on('close', (code: number | null) => {
                 resolve({
-                    command: input.command,
+                    command: cmdString,
                     exitCode: code || 0,
                     stdout: stdout.slice(0, 5000),
                     stderr: stderr.slice(0, 5000),
@@ -305,9 +396,9 @@ export class ExecutorAgent extends BaseAgent<ExecutorInput, ExecutorOutput> {
                 });
             });
 
-            child.on('error', (error) => {
+            child.on('error', (error: Error) => {
                 resolve({
-                    command: input.command,
+                    command: cmdString,
                     exitCode: 1,
                     stdout: '',
                     stderr: error.message,

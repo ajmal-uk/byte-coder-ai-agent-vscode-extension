@@ -33,7 +33,7 @@ export class IntentAnalyzer {
     // Query type detection patterns
     private readonly QUERY_PATTERNS: { [key: string]: RegExp[] } = {
         'fix': [/\bfix\b/i, /\bbug\b/i, /\berror\b/i, /\bissue\b/i, /\bproblem\b/i, /\bbroken\b/i, /\bwrong\b/i, /\bfail/i, /\bcrash/i, /\bnot working/i],
-        'explain': [/\bexplain\b/i, /\bwhat\b/i, /\bhow\b/i, /\bwhy\b/i, /\bunderstand\b/i, /\bdescribe\b/i, /\bwalk.*through\b/i],
+        'explain': [/\bexplain\b/i, /\bwhat\b/i, /\bhow\b/i, /\bwhy\b/i, /\bunderstand\b/i, /\bdescribe\b/i, /\bwalk.*through\b/i, /\bwho\b/i, /\bwhere\b/i, /\bwhen\b/i],
         'refactor': [/\brefactor\b/i, /\bimprove\b/i, /\boptimize\b/i, /\bclean\b/i, /\bbetter\b/i, /\benhance\b/i, /\brewrite\b/i],
         'test': [/\btest\b/i, /\btests\b/i, /\bunit\b/i, /\bspec\b/i, /\bcoverage\b/i, /\bmock\b/i],
         'optimize': [/\bperformance\b/i, /\bspeed\b/i, /\bfast\b/i, /\bslow\b/i, /\bmemory\b/i, /\befficient\b/i],

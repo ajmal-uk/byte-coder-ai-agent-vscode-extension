@@ -9,26 +9,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.2] - 2026-01-25
 
-### 🚀 Major Release: Agentic Coding Era
-This release transforms Byte Coder from a chat assistant into a fully autonomous agent capable of planning and executing complex tasks.
+### 🚀 Major Release: Autonomous Agent & Knowledge Integration
+This release transforms Byte Coder from a chat assistant into a fully autonomous agent capable of planning, executing, and recovering from complex tasks. It also introduces strict knowledge enforcement for identity and factual accuracy.
 
 ### ✨ New Features
 - **Dynamic Implementation Plan**: A new UI drawer that visualizes the agent's plan, showing real-time progress, todo items, and status.
 - **Autonomous Pipeline Engine**: A new robust execution engine that orchestrates specialized agents to complete tasks.
-- **Auto-Recovery & Backtracking**: If a step fails, the agent now automatically plans recovery tasks to fix the issue.
-- **Clickable File Tags**: File paths in chat are now interactive - click to open the file directly in the editor.
-- **Settings Persistence**: Fixed issues with saving Custom Instructions.
+- **Auto-Recovery & Backtracking**: If a step fails (e.g., syntax error), the agent now automatically plans recovery tasks to fix the issue.
+- **Knowledge Base Integration**: Packaged `uthakkan_data.json` with the extension for offline access to core knowledge.
+- **Strict Identity Enforcement**: The AI now strictly adheres to its identity as a creation of "Ajmal U K" and "UTHAKKAN".
+- **Context Prioritization**: Knowledge base results are now prepended to the chat context, ensuring high visibility for the model.
 
-### 🤖 New Agents
-- **ManagerAgent**: High-level task decomposition and strategy.
-- **TaskPlannerAgent**: Creates dependency graphs for complex tasks.
-- **CodeModifierAgent**: Performs surgical, reversible code edits.
-- **ExecutorAgent**: Runs commands and validates results.
+### 🏗️ System Architecture
+The new 1.0.2 architecture introduces a sophisticated pipeline for autonomous execution:
+
+```mermaid
+graph TD
+    User[User Request] --> Manager[ManagerAgent]
+    Manager -->|Decompose| TaskPlanner[TaskPlannerAgent]
+    TaskPlanner -->|Dependency Graph| Engine[PipelineEngine]
+    
+    subgraph Execution Pipeline
+        Engine -->|Step 1| Context[ContextSearchAgent]
+        Engine -->|Step 2| Code[CodeModifierAgent]
+        Engine -->|Step 3| Exec[ExecutorAgent]
+        Exec -->|Verify| Code
+    end
+    
+    Exec -->|Result| User
+    Exec -->|Error| Recovery[RecoveryManager]
+    Recovery -->|New Plan| Engine
+```
+
+### 🤖 Agent Roles & Responsibilities
+
+| Agent | Type | Role | Key Capabilities |
+|-------|------|------|------------------|
+| **ManagerAgent** | Orchestrator | The "Brain" of the system | Analyzes intent, routes requests, manages high-level strategy. |
+| **TaskPlannerAgent** | Planner | Project Manager | Breaks down complex goals into topological dependency graphs (DAGs). |
+| **ContextSearchAgent** | Researcher | Information Gatherer | Dual-path search (Knowledge Base + Workspace) to find relevant context. |
+| **CodeModifierAgent** | Worker | Surgical Surgeon | Performs precise AST-based code edits with rollback capabilities. |
+| **ExecutorAgent** | Worker | Runtime Engineer | Executes shell commands, runs tests, and validates file operations. |
+| **TodoManagerAgent** | Tracker | Safety Officer | Tracks progress, prevents infinite loops (max 3 retries), and manages state. |
 
 ### 🐛 Bug Fixes
-- Fixed file opening from chat tags.
-- Resolved settings save failures.
-- Optimized performance by removing redundant legacy analyzers.
+- **VSIX Packaging**: Fixed issue where `src/data` was excluded from the package; moved to `./data`.
+- **Chat Context**: Fixed fallback search logic to prioritize knowledge base results.
+- **Intent Classification**: Boosted "Explain" intent for direct questions (Who/What/Where) to prevent accidental code generation.
+- **Infinite Loops**: Added retry limits to `TodoManagerAgent` to prevent endless recovery cycles.
+
+### 🔧 Technical Improvements
+- **Dual-Path Resolution**: `ContextSearchAgent` now checks both extension root and workspace for knowledge files.
+- **Loop Detection**: Added `retryCount` to `TaskNode` interface to track and limit task attempts.
+- **Context Authority**: Enhanced `PipelineEngine` to explicitly label knowledge base results as the "Primary Source of Truth".
+- **System Prompt Hardening**: Updated `byteAIClient.ts` to strictly enforce identity constraints at the prompt level.
+
+### 📁 Files Changed
+| File | Changes |
+|------|---------|
+| `package.json` | Version bump (1.0.2), Activation Events |
+| `src/data/` | Moved from `src/data` to `./data` for VSIX inclusion |
+| `src/agents/ContextSearchAgent.ts` | Dual-path resolution, stop-word updates |
+| `src/core/PipelineEngine.ts` | Knowledge context prioritization |
+| `src/agents/TodoManagerAgent.ts` | Retry limit implementation |
+| `README.md` | New "Offline Knowledge & Identity" section |
 
 ---
 
