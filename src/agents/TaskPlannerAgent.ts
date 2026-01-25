@@ -61,32 +61,33 @@ export class TaskPlannerAgent extends BaseAgent<TaskPlannerInput, TaskPlannerRes
     }
 
     /**
-     * Generate task graph from input
-     */
-    private generateTaskGraph(input: TaskPlannerInput): TaskNode[] {
-        const taskType = this.detectTaskType(input);
-
-        switch (taskType) {
-            case 'script_execution':
-                return this.generateScriptTasks(input);
-            case 'scaffold':
-                return this.generateScaffoldTasks(input);
-            case 'generic':
-            default:
-                return this.generateGenericTasks(input);
-        }
-    }
-
-    /**
      * Detect the type of task based on input analysis
      */
-    private detectTaskType(input: TaskPlannerInput): 'script_execution' | 'scaffold' | 'generic' {
+    private detectTaskType(input: TaskPlannerInput): 'script_execution' | 'scaffold' | 'stress_test' | 'command_sequence' | 'generic' {
         const query = input.query.toLowerCase();
         
         // 1. Explicit project type override
         if (input.projectType === 'script') return 'script_execution';
         
-        // 2. Analyze for execution intent
+        // 2. Check for Stress Test / Max Time / Loop intent
+        if (query.includes('max time') || query.includes('stress test') || query.includes('load test') || query.includes('run for')) {
+            return 'stress_test';
+        }
+
+        // 3. Check for Multi-Step Command Sequence OR Single Shell Command
+        // Keywords indicating sequence or specific terminal operations
+        const sequenceKeywords = ['then', 'after', 'and', 'clone', 'commit', 'push', 'pull', 'install', 'curl', 'wget', 'git'];
+        const commonBinaries = ['ls', 'pwd', 'cp', 'mv', 'rm', 'mkdir', 'cat', 'echo', 'touch', 'grep', 'find', 'sed', 'awk', 'tar', 'zip', 'unzip', 'ps', 'kill', 'top', 'htop', 'df', 'du', 'npx', 'npm', 'yarn', 'pnpm', 'node', 'python', 'pip'];
+
+        const hasSequence = sequenceKeywords.filter(k => query.includes(k)).length >= 2;
+        const isGitOperation = query.startsWith('git') || query.includes('clone repo') || query.includes('commit code');
+        const isShellCommand = commonBinaries.some(bin => query.startsWith(bin + ' ') || query === bin);
+        
+        if (hasSequence || isGitOperation || isShellCommand) {
+            return 'command_sequence';
+        }
+
+        // 4. Analyze for execution intent
         // Look for action verbs combined with context
         const executionVerbs = ['run', 'execute', 'calculate', 'compute', 'evaluate', 'start', 'launch', 'test'];
         const hasExecutionVerb = executionVerbs.some(v => query.includes(v));
@@ -103,14 +104,180 @@ export class TaskPlannerAgent extends BaseAgent<TaskPlannerInput, TaskPlannerRes
             return 'script_execution';
         }
 
-        // 3. Analyze for scaffolding intent
+        // 4. Analyze for scaffolding intent
         // If file structure is provided and significant, it's likely scaffolding
         if (input.fileStructure && input.fileStructure.length > 2) {
             return 'scaffold';
         }
         
-        // 4. Default to generic planning
+        // 5. Default to generic planning
         return 'generic';
+    }
+
+    /**
+     * Generate tasks for stress testing / long running verification
+     */
+    private generateStressTestTasks(input: TaskPlannerInput): TaskNode[] {
+        const tasks: TaskNode[] = [];
+        const query = input.query.toLowerCase();
+        
+        // 1. Setup Phase
+        tasks.push(this.createTask(
+            'Prepare Stress Test Environment',
+            'stress_test_config.json',
+            [],
+            undefined
+        ));
+
+        // 2. Implementation Phase - create a robust test script
+        const scriptName = 'stress_test_runner.ts';
+        tasks.push(this.createTask(
+            'Implement Stress Test Logic (Loop/Timer)',
+            scriptName,
+            [tasks[0].id],
+            'npx ts-node --check ' + scriptName // Syntax check
+        ));
+
+        // 3. Execution Phase
+        tasks.push(this.createTask(
+            'Run Stress Test (High Duration)',
+            undefined,
+            [tasks[1].id],
+            `npx ts-node ${scriptName}`
+        ));
+
+        // 4. Analysis Phase
+        tasks.push(this.createTask(
+            'Analyze Test Results & Logs',
+            'test_report.md',
+            [tasks[2].id],
+            undefined
+        ));
+
+        return tasks;
+    }
+
+    /**
+     * Generate task graph from input
+     */
+    private generateTaskGraph(input: TaskPlannerInput): TaskNode[] {
+        const taskType = this.detectTaskType(input);
+
+        switch (taskType) {
+            case 'stress_test':
+                return this.generateStressTestTasks(input);
+            case 'command_sequence':
+                return this.generateCommandSequenceTasks(input);
+            case 'script_execution':
+                return this.generateScriptTasks(input);
+            case 'scaffold':
+                return this.generateScaffoldTasks(input);
+            case 'generic':
+            default:
+                return this.generateGenericTasks(input);
+        }
+    }
+
+    /**
+     * Generate tasks for sequential command execution
+     */
+    private generateCommandSequenceTasks(input: TaskPlannerInput): TaskNode[] {
+        const tasks: TaskNode[] = [];
+        const query = input.query;
+        
+        // Simple heuristic to split commands by "then", "and", ",", ";"
+        // This allows logical chaining like "clone repo X then run npm install"
+        const steps = query.split(/(?:\s+then\s+|\s+and\s+|,\s*|;\s*)/i)
+            .map(s => s.trim())
+            .filter(s => s.length > 0);
+
+        let previousTaskId: string | undefined;
+
+        steps.forEach((stepDesc, index) => {
+            // Infer command from description
+            let command: string | undefined;
+            let validationCommand: string | undefined;
+            let description = stepDesc;
+
+            // Normalize description for better command inference
+            const lowerDesc = stepDesc.toLowerCase();
+
+            if (lowerDesc.includes('clone')) {
+                const urlMatch = stepDesc.match(/(?:https?|git|ssh):\/\/[^\s]+/);
+                if (urlMatch) {
+                    command = `git clone ${urlMatch[0]}`;
+                    // Extract repo name to validate
+                    const repoName = urlMatch[0].split('/').pop()?.replace('.git', '');
+                    if (repoName) validationCommand = `test -d ${repoName}`;
+                } else {
+                    command = 'git clone <repo_url>'; // Placeholder
+                }
+            }
+            else if (lowerDesc.includes('install')) {
+                if (lowerDesc.includes('npm')) {
+                    command = 'npm install';
+                    validationCommand = 'npm list --depth=0';
+                }
+                else if (lowerDesc.includes('pip')) {
+                    command = 'pip install -r requirements.txt';
+                    validationCommand = 'pip list';
+                }
+                else if (lowerDesc.includes('yarn')) {
+                    command = 'yarn install';
+                    validationCommand = 'yarn list --depth=0';
+                }
+                else {
+                    command = 'npm install'; // Default
+                    validationCommand = 'npm list --depth=0';
+                }
+            }
+            else if (lowerDesc.includes('commit')) {
+                const msgMatch = stepDesc.match(/['"]([^'"]+)['"]/);
+                const msg = msgMatch ? msgMatch[1] : 'update';
+                command = `git add . && git commit -m "${msg}"`;
+                validationCommand = 'git log -1 --oneline';
+            }
+            else if (lowerDesc.includes('push')) {
+                command = 'git push';
+                validationCommand = 'git status';
+            }
+            else if (lowerDesc.includes('test api') || lowerDesc.includes('check url') || lowerDesc.includes('curl')) {
+                const urlMatch = stepDesc.match(/(?:https?):\/\/[^\s]+/);
+                if (urlMatch) {
+                    command = `curl -I ${urlMatch[0]}`;
+                } else {
+                    command = 'curl <url>';
+                }
+            }
+            else if (lowerDesc.startsWith('run ') || lowerDesc.startsWith('exec ')) {
+                 command = stepDesc.replace(/^(run|exec)\s+/, '');
+            }
+            // Default fallback for other commands (e.g., 'ls -la', 'git status', 'mkdir foo')
+            else {
+                // If it looks like a shell command (starts with a known binary or has arguments)
+                // We'll assume it's a direct command
+                command = stepDesc;
+            }
+
+            // Create task
+            const taskId = `task_${this.taskIdCounter++}`;
+            const deps = previousTaskId ? [previousTaskId] : [];
+
+            tasks.push({
+                id: taskId,
+                description: description,
+                dependencies: deps,
+                status: 'pending',
+                command: command,
+                validationCommand: validationCommand,
+                type: 'command',
+                retryCount: 0
+            });
+
+            previousTaskId = taskId;
+        });
+
+        return tasks;
     }
 
     /**
@@ -304,7 +471,10 @@ export class TaskPlannerAgent extends BaseAgent<TaskPlannerInput, TaskPlannerRes
             for (const endpoint of input.apiEndpoints) {
                 const resource = endpoint.path.split('/')[2] || 'root';
                 if (!resources.has(resource)) resources.set(resource, []);
-                resources.get(resource)!.push(endpoint);
+                const resourceList = resources.get(resource);
+                if (resourceList) {
+                    resourceList.push(endpoint);
+                }
             }
 
             // Create route file tasks

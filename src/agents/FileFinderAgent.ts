@@ -124,13 +124,51 @@ export class FileFinderAgent {
             return this.fileCache;
         }
 
+        // Limit to 2000 files to prevent performance issues in large repos
         this.fileCache = await vscode.workspace.findFiles(
             this.SEARCHABLE_EXTENSIONS,
-            this.EXCLUDE_PATTERNS
+            this.EXCLUDE_PATTERNS,
+            2000 
         );
         this.fileCacheTime = now;
 
         return this.fileCache;
+    }
+
+    /**
+     * Calculate fuzzy match score (0-100)
+     * Handles non-contiguous matching (e.g. 'fba' matches 'foo-bar-app')
+     */
+    private calculateFuzzyScore(query: string, target: string): number {
+        if (!query || !target) return 0;
+        const q = query.toLowerCase();
+        const t = target.toLowerCase();
+        
+        // Exact match
+        if (t === q) return 100;
+        // Contains match
+        if (t.includes(q)) return 80;
+        
+        // Non-contiguous sequence match
+        let qIdx = 0;
+        let tIdx = 0;
+        let matches = 0;
+        
+        while (qIdx < q.length && tIdx < t.length) {
+            if (q[qIdx] === t[tIdx]) {
+                matches++;
+                qIdx++;
+            }
+            tIdx++;
+        }
+        
+        if (matches === q.length) {
+            // Penalize based on length difference to prefer tighter matches
+            const lengthPenalty = Math.max(0, (t.length - q.length) * 2);
+            return Math.max(10, 60 - lengthPenalty);
+        }
+        
+        return 0;
     }
 
     /**
@@ -149,9 +187,10 @@ export class FileFinderAgent {
 
         // Check mentioned files (highest priority)
         for (const mentioned of intent.mentionedFiles) {
-            const lowerMentioned = mentioned.toLowerCase();
-            if (lowerPath.includes(lowerMentioned)) {
-                score += 50;
+            // Use fuzzy scoring for mentioned files too
+            const fuzzyScore = this.calculateFuzzyScore(mentioned, fileName);
+            if (fuzzyScore > 50) {
+                score += fuzzyScore; // 50-100 points
                 matchType = 'exact';
                 matchedKeywords.push(mentioned);
             }
@@ -159,26 +198,35 @@ export class FileFinderAgent {
 
         // Check code symbols in filename
         for (const symbol of intent.symbols) {
-            const lowerSymbol = symbol.toLowerCase();
-            if (lowerFileName.includes(lowerSymbol)) {
-                score += 15;
-                matchType = 'exact';
-                matchedKeywords.push(symbol);
-            } else if (lowerPath.includes(lowerSymbol)) {
-                score += 8;
+            const fuzzyScore = this.calculateFuzzyScore(symbol, fileName);
+            if (fuzzyScore > 0) {
+                score += (fuzzyScore * 0.5); // Scale down a bit for symbols
+                matchType = 'fuzzy';
                 matchedKeywords.push(symbol);
             }
         }
 
-        // Check keywords
+        // Check keywords with fuzzy matching
         for (const kw of intent.keywords) {
+            // Direct inclusion check (fast)
             if (lowerFileName.includes(kw)) {
-                score += 10;
+                score += 20;
                 matchedKeywords.push(kw);
                 if (matchType !== 'exact') matchType = 'fuzzy';
-            } else if (lowerPath.includes(kw)) {
-                score += 5;
+            } 
+            // Path inclusion check
+            else if (lowerPath.includes(kw)) {
+                score += 10;
                 matchedKeywords.push(kw);
+            }
+            // Smart fuzzy check (slower but catches 'usr' -> 'user')
+            else {
+                const fuzzyScore = this.calculateFuzzyScore(kw, fileName);
+                if (fuzzyScore > 40) {
+                    score += (fuzzyScore * 0.3);
+                    matchedKeywords.push(kw);
+                    matchType = 'fuzzy';
+                }
             }
         }
 

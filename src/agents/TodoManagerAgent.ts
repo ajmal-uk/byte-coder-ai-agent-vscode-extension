@@ -15,6 +15,8 @@ export interface TodoManagerInput {
         result?: ExecutionResult;
         error?: string;
     };
+    startTime?: number; // When the whole workflow started
+    maxDuration?: number; // Max duration in ms for the whole workflow
 }
 
 export interface TodoManagerOutput {
@@ -59,6 +61,19 @@ export class TodoManagerAgent extends BaseAgent<TodoManagerInput, TodoManagerOut
         let nextTaskId: string | undefined;
         let reasoning = '';
         const changes: string[] = [];
+
+        // 0. Check Global Timeout
+        if (input.startTime && input.maxDuration) {
+            const elapsed = Date.now() - input.startTime;
+            if (elapsed > input.maxDuration) {
+                return this.createOutput('success', {
+                    updatedPlan,
+                    action: 'stop',
+                    reasoning: `Global timeout reached (${elapsed}ms > ${input.maxDuration}ms). Stopping execution.`,
+                    changes: []
+                }, 1.0, startTime);
+            }
+        }
 
         // 1. Handle Last Result
         if (lastTaskResult) {

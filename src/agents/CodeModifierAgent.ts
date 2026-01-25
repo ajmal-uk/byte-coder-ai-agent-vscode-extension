@@ -4,7 +4,11 @@
  */
 
 import * as vscode from 'vscode';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { BaseAgent, AgentOutput, CodeModification, Checkpoint } from '../core/AgentTypes';
+
+const execAsync = promisify(exec);
 
 export interface CodeModifierInput {
     modifications: CodeModification[];
@@ -189,6 +193,27 @@ export class CodeModifierAgent extends BaseAgent<CodeModifierInput, CodeModifier
             // Save the document
             await document.save();
 
+            // Verify Syntax (Self-Correction)
+            const syntaxError = await this.validateSyntax(mod.filePath);
+            if (syntaxError) {
+                // Revert changes
+                const revertEdit = new vscode.WorkspaceEdit();
+                revertEdit.replace(
+                    uri,
+                    new vscode.Range(new vscode.Position(0, 0), new vscode.Position(lines.length + 100, 0)),
+                    currentContent
+                );
+                await vscode.workspace.applyEdit(revertEdit);
+                await document.save();
+
+                return {
+                    file: mod.filePath,
+                    success: false,
+                    linesModified: 0,
+                    error: `Syntax Error detected: ${syntaxError.split('\n')[0]}. Reverted changes.`
+                };
+            }
+
             return {
                 file: mod.filePath,
                 success: true,
@@ -201,8 +226,25 @@ export class CodeModifierAgent extends BaseAgent<CodeModifierInput, CodeModifier
                 file: mod.filePath,
                 success: false,
                 linesModified: 0,
-                error: (error as Error).message
+                error: `Error applying modification: ${(error as Error).message}`
             };
+        }
+    }
+
+    /**
+     * Validate syntax of the modified file
+     */
+    private async validateSyntax(filePath: string): Promise<string | null> {
+        try {
+            if (filePath.endsWith('.js')) {
+                await execAsync(`node --check "${filePath}"`);
+            } else if (filePath.endsWith('.py')) {
+                await execAsync(`python3 -m py_compile "${filePath}"`);
+            }
+            // Add more languages as needed
+            return null;
+        } catch (error: any) {
+            return error.stderr || error.message || "Syntax check failed";
         }
     }
 
@@ -210,7 +252,7 @@ export class CodeModifierAgent extends BaseAgent<CodeModifierInput, CodeModifier
      * Create a checkpoint before modifications
      */
     private async createCheckpoint(modifications: CodeModification[]): Promise<Checkpoint> {
-        const modifiedFiles = [...new Set(modifications.map(m => m.filePath))];
+        const modifiedFiles = [...new Set((modifications || []).map(m => m.filePath))];
         const checkpointId = `cp_${new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14)}`;
 
         // Store original contents
@@ -255,8 +297,10 @@ export class CodeModifierAgent extends BaseAgent<CodeModifierInput, CodeModifier
                         content
                     );
 
-                    await vscode.workspace.applyEdit(edit);
-                    await document.save();
+                    const applied = await vscode.workspace.applyEdit(edit);
+                    if (applied) {
+                        await document.save();
+                    }
                 } catch {
                     // File was created, delete it
                     try {
@@ -315,7 +359,7 @@ export class CodeModifierAgent extends BaseAgent<CodeModifierInput, CodeModifier
             hash = ((hash << 5) - hash) + char;
             hash = hash & hash;
         }
-        return `sha256:${Math.abs(hash).toString(16).padStart(8, '0')}`;
+        return `hash:${Math.abs(hash).toString(16).padStart(8, '0')}`;
     }
 
     /**

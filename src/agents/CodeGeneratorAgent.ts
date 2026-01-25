@@ -101,7 +101,7 @@ export class CodeGeneratorAgent extends BaseAgent<CodeGeneratorInput, CodeGenera
             
             // Inject context into the component if relevant
             if (additionalContext) {
-                 innerContent += `\n            {/* \n              CONTEXT:\n              ${context?.knowledge?.map(k => k.summary).join('\n              ')} \n            */}`;
+                 innerContent += `\n            {/* \n              CONTEXT:\n              ${(context?.knowledge || []).map(k => k.summary).join('\n              ')} \n            */}`;
                  // Also try to intelligently inject strings
                  context?.knowledge?.forEach(k => {
                      if (k.summary.includes('founder') || k.summary.includes('owner')) {

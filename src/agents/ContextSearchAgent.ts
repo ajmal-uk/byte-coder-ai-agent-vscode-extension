@@ -255,6 +255,47 @@ export class ContextSearchAgent extends BaseAgent<ContextSearchInput, ContextSea
                         knowledgePath = devPathNew;
                     } else if (fs.existsSync(devPathOld)) {
                         knowledgePath = devPathOld;
+                    } else {
+                        // Fallback: Infer knowledge from package.json if standard KB missing
+                        const packageJsonPath = path.join(workspaceRoot, 'package.json');
+                        if (fs.existsSync(packageJsonPath)) {
+                            try {
+                                const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+                                const projectKnowledge = {
+                                    name: pkg.name,
+                                    scripts: pkg.scripts,
+                                    dependencies: { ...pkg.dependencies, ...pkg.devDependencies },
+                                    type: 'inferred_project_context'
+                                };
+                                
+                                // Inject inferred knowledge
+                                memories.push({
+                                    type: 'knowledge',
+                                    date: new Date(),
+                                    summary: `Project Context: ${pkg.name} (${Object.keys(pkg.dependencies || {}).join(', ')})`,
+                                    relevance: 0.8,
+                                    data: projectKnowledge
+                                });
+                                
+                                // Also search scripts for query relevance
+                                if (pkg.scripts) {
+                                    for (const [script, cmd] of Object.entries(pkg.scripts)) {
+                                         const scriptRelevance = this.calculateTermRelevance(script, queryTerms);
+                                         if (scriptRelevance > 0.4) {
+                                             memories.push({
+                                                 type: 'knowledge',
+                                                 date: new Date(),
+                                                 summary: `Script: npm run ${script} -> ${cmd}`,
+                                                 relevance: scriptRelevance * 1.3,
+                                                 data: { script, cmd }
+                                             });
+                                         }
+                                    }
+                                }
+                            } catch (e) {
+                                // Ignore malformed package.json
+                            }
+                        }
                     }
                 }
             }
@@ -413,7 +454,7 @@ export class ContextSearchAgent extends BaseAgent<ContextSearchInput, ContextSea
     private buildSummary(memories: ContextMemory[], conversations: string[]): string {
         const parts: string[] = [];
 
-        if (memories.length > 0) {
+        if (memories && memories.length > 0) {
             const types = [...new Set(memories.map(m => m.type))];
             parts.push(`Found ${memories.length} relevant memories (${types.join(', ')})`);
         }

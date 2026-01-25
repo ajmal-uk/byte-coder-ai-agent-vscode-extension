@@ -265,7 +265,10 @@ export class SearchAgent {
                     if (!tree.has(parent)) {
                         tree.set(parent, new Set());
                     }
-                    tree.get(parent)!.add(currentPath);
+                    const parentSet = tree.get(parent);
+                    if (parentSet) {
+                        parentSet.add(currentPath);
+                    }
                 }
 
                 // Add file
@@ -273,7 +276,10 @@ export class SearchAgent {
                 if (!tree.has(parent)) {
                     tree.set(parent, new Set());
                 }
-                tree.get(parent)!.add(path);
+                const fileParentSet = tree.get(parent);
+                if (fileParentSet) {
+                    fileParentSet.add(path);
+                }
             }
 
             // Format tree

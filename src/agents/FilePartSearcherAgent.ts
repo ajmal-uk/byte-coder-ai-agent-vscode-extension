@@ -43,10 +43,12 @@ export class FilePartSearcherAgent extends BaseAgent<FilePartSearchInput, FilePa
             /(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/g,
             /(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?function/g,
             /(\w+)\s*:\s*(?:async\s*)?\([^)]*\)\s*=>/g,  // method in object
+            /def\s+(\w+)\s*\(/g, // Python
         ],
         'class': [
             /class\s+(\w+)(?:\s+extends\s+\w+)?(?:\s+implements\s+[\w,\s]+)?\s*\{/g,
             /interface\s+(\w+)(?:\s+extends\s+[\w,\s]+)?\s*\{/g,
+            /class\s+(\w+)(?:\(\w+\))?\s*:/g, // Python
         ],
         'component': [
             /(?:const|let|var|function)\s+(\w+)\s*[=:]?\s*(?:\([^)]*\)|)\s*(?:=>)?\s*\{?\s*(?:return\s*)?\(/g,
@@ -55,6 +57,8 @@ export class FilePartSearcherAgent extends BaseAgent<FilePartSearchInput, FilePa
         'import': [
             /import\s+(?:\{[^}]+\}|\*\s+as\s+\w+|\w+)\s+from\s+['"][^'"]+['"]/g,
             /(?:const|let|var)\s+\{?[^}]+\}?\s*=\s*require\s*\(['"][^'"]+['"]\)/g,
+            /import\s+[\w\s,]+/g, // Python
+            /from\s+[\w.]+\s+import\s+[\w\s,]+/g // Python
         ],
         'export': [
             /export\s+(?:default\s+)?(?:const|let|var|function|class|interface|type)\s+(\w+)/g,

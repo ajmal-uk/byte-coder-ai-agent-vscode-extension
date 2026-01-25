@@ -15,6 +15,7 @@ export interface CommandGeneratorInput {
     content?: string;
     customCommand?: string;
     safe?: boolean;
+    context?: string;
 }
 
 export interface CommandGeneratorResult {
@@ -41,6 +42,21 @@ export class CommandGeneratorAgent extends BaseAgent<CommandGeneratorInput, Comm
         /truncate\s+table/i
     ];
 
+    // Interactive command patterns (require visible terminal)
+    private readonly INTERACTIVE_PATTERNS = [
+        /^npm start/i,
+        /^npm run dev/i,
+        /^npm run serve/i,
+        /^node .+\.js$/i, // Simple node scripts might be servers
+        /^python .+\.py$/i,
+        /^go run/i,
+        /^docker run/i,
+        /server/i,
+        /watch/i,
+        /interactive/i,
+        /start/i
+    ];
+
     constructor() {
         super({ name: 'CommandGenerator', timeout: 5000 });
 
@@ -61,19 +77,31 @@ export class CommandGeneratorAgent extends BaseAgent<CommandGeneratorInput, Comm
             // Handle task plan if provided
             if (input.taskPlan) {
                 for (const task of input.taskPlan.taskGraph) {
-                    if (task.validationCommand) {
-                        commands.push({
-                            command: task.validationCommand,
-                            args: [],
-                            platform: 'all',
-                            description: task.description
-                        });
-                    }
+                    if (task.command) {
+                    commands.push({
+                        command: task.command,
+                        args: [],
+                        platform: 'all',
+                        description: task.description,
+                        runInTerminal: this.isInteractive(task.command, task.description)
+                    });
+                }
+                
+                // Also add validation command if present (as a subsequent step)
+                if (task.validationCommand) {
+                    commands.push({
+                        command: task.validationCommand,
+                        args: [],
+                        platform: 'all',
+                        description: `Validate: ${task.description}`,
+                        runInTerminal: this.isInteractive(task.validationCommand, task.description)
+                    });
+                }
                 }
             }
 
             switch (input.operation) {
-                    case 'create_file':
+                case 'create_file':
                     commands.push(...this.generateCreateFileCommands(input.target!, input.content));
                     break;
                 case 'create_dir':
@@ -98,8 +126,10 @@ export class CommandGeneratorAgent extends BaseAgent<CommandGeneratorInput, Comm
                     commands.push(this.generateInstallCommand());
                     break;
                 case 'custom':
-                    if (input.customCommand) {
-                        const customResult = this.processCustomCommand(input.customCommand);
+                    // Prioritize explicit customCommand, but fall back to context inference
+                    const cmdToProcess = input.customCommand || input.context;
+                    if (cmdToProcess) {
+                        const customResult = this.processCustomCommand(cmdToProcess, input.context);
                         commands.push(customResult.command);
                         requiresConfirmation = customResult.dangerous;
                         if (customResult.dangerous) {
@@ -291,7 +321,8 @@ export class CommandGeneratorAgent extends BaseAgent<CommandGeneratorInput, Comm
             command: cmd,
             args: [],
             platform: this.platform,
-            description: `Run script: ${script}`
+            description: `Run script: ${script}`,
+            runInTerminal: this.isInteractive(cmd, script)
         };
     }
 
@@ -310,7 +341,7 @@ export class CommandGeneratorAgent extends BaseAgent<CommandGeneratorInput, Comm
     /**
      * Process custom command with safety check
      */
-    private processCustomCommand(command: string): { command: CommandSpec; dangerous: boolean } {
+    private processCustomCommand(command: string, context?: string): { command: CommandSpec; dangerous: boolean } {
         const dangerous = this.isDangerousCommand(command);
 
         return {
@@ -319,7 +350,8 @@ export class CommandGeneratorAgent extends BaseAgent<CommandGeneratorInput, Comm
                 args: [],
                 platform: 'all',
                 requiresConfirmation: dangerous,
-                description: dangerous ? 'Custom command (requires confirmation)' : 'Custom command'
+                description: dangerous ? 'Custom command (requires confirmation)' : 'Custom command',
+                runInTerminal: this.isInteractive(command, context)
             },
             dangerous
         };
@@ -330,6 +362,26 @@ export class CommandGeneratorAgent extends BaseAgent<CommandGeneratorInput, Comm
      */
     private isDangerousCommand(command: string): boolean {
         return this.DANGEROUS_PATTERNS.some(pattern => pattern.test(command));
+    }
+
+    /**
+     * Check if command requires visible terminal (interactive)
+     */
+    private isInteractive(command: string, context?: string): boolean {
+        const matchesPattern = this.INTERACTIVE_PATTERNS.some(pattern => pattern.test(command));
+        if (matchesPattern) return true;
+
+        if (context) {
+            const lowerContext = context.toLowerCase();
+            if (lowerContext.includes('start server') || 
+                lowerContext.includes('run server') || 
+                lowerContext.includes('interactive') ||
+                lowerContext.includes('watch mode')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

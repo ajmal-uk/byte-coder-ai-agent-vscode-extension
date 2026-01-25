@@ -31,6 +31,8 @@ import { CodeGeneratorAgent } from '../agents/CodeGeneratorAgent';
 import { ExecutorAgent } from '../agents/ExecutorAgent';
 import { DocWriterAgent } from '../agents/DocWriterAgent';
 import { TodoManagerAgent, TodoManagerInput } from '../agents/TodoManagerAgent';
+import { ArchitectAgent } from '../agents/ArchitectAgent';
+import { QualityAssuranceAgent } from '../agents/QualityAssuranceAgent';
 
 export interface PipelineContext {
     query: string;
@@ -62,6 +64,8 @@ export class PipelineEngine {
     private executor: ExecutorAgent;
     private docWriter: DocWriterAgent;
     private todoManager: TodoManagerAgent;
+    private architect: ArchitectAgent;
+    private qualityAssurance: QualityAssuranceAgent;
 
     // Agent registry for dynamic dispatch
     private agents: Map<string, any> = new Map();
@@ -84,6 +88,8 @@ export class PipelineEngine {
         this.executor = new ExecutorAgent();
         this.docWriter = new DocWriterAgent();
         this.todoManager = new TodoManagerAgent();
+        this.architect = new ArchitectAgent();
+        this.qualityAssurance = new QualityAssuranceAgent();
 
         // Register agents
         this.agents.set('IntentAnalyzer', this.intentAnalyzer);
@@ -102,6 +108,8 @@ export class PipelineEngine {
         this.agents.set('Executor', this.executor);
         this.agents.set('DocWriter', this.docWriter);
         this.agents.set('TodoManager', this.todoManager);
+        this.agents.set('Architect', this.architect);
+        this.agents.set('QualityAssurance', this.qualityAssurance);
     }
 
     /**
@@ -134,8 +142,11 @@ export class PipelineEngine {
 
         // Group steps by parallel execution capability
         const stepGroups = this.groupSteps(decision.pipeline);
+        const executionQueue = [...stepGroups];
 
-        for (const group of stepGroups) {
+        while (executionQueue.length > 0) {
+            const group = executionQueue.shift()!;
+
             // Update plan status to in_progress
             group.forEach(step => this.updatePlanStatus(context, step.agent, 'in_progress'));
 
@@ -159,6 +170,102 @@ export class PipelineEngine {
             } else {
                 // Parallel execution
                 await Promise.all(group.map(step => this.executeStep(step, context)));
+            }
+
+            // Check for QA failures and handle loop
+            if (group.some(step => step.agent === 'QualityAssurance')) {
+                 const qaResult = context.results.get('QualityAssurance');
+                 if (qaResult && qaResult.status === 'success' && qaResult.payload && !qaResult.payload.passed) {
+                     // QA failed (logical failure)
+                     // Check retry count
+                     const retryCount = (context as any).retryCount || 0;
+                     if (retryCount < 3) {
+                         (context as any).retryCount = retryCount + 1;
+                         
+                         const qaIssues = (qaResult.payload.issues || []).map((i: any) => i.description).join('; ');
+                         
+                         this.emitStatus(onStatus, {
+                            phase: 'Quality Assurance',
+                            currentAgent: 'QualityAssurance',
+                            progress: Math.round((completedSteps / totalSteps) * 100),
+                            message: `QA Failed. Retrying (Attempt ${retryCount + 1}/3)... Issues: ${qaIssues}`,
+                            isComplete: false,
+                            hasError: false,
+                            plan: context.currentPlan,
+                            activeTaskId: this.getActiveTaskId(context, 'QualityAssurance')
+                         });
+
+                         // Create recovery steps
+                         // We need to re-run CodeModifier -> Executor -> QualityAssurance
+                         // We pass the QA issues as instruction to CodeModifier
+                         // Since CodeModifier usually takes input from CodeGenerator, we need to adapt it.
+                         // But CodeModifier is designed to take `modifications` list.
+                         // Here we want it to "Fix issues".
+                         // We might need to run `CodeGenerator` again to generate the fix first.
+                         
+                         // Let's invoke CodeGenerator with a specific "Fix" task
+                         const fixTask: TaskNode = {
+                             id: `qa-fix-${Date.now()}`,
+                             description: `Fix QA issues: ${qaIssues}`,
+                             dependencies: [],
+                             status: 'pending'
+                         };
+
+                         // We can't easily invoke CodeGenerator here directly as a step without arguments.
+                         // But we can add steps to the queue.
+                         
+                         // We need a way to pass arguments to the steps in the queue.
+                         // The `PipelineStep` has `args`.
+                         
+                         // 1. CodeGenerator (to generate fix modifications)
+                         const codeGenStep: PipelineStep = {
+                             step: 900 + retryCount * 3,
+                             agent: 'CodeGenerator',
+                             parallel: false,
+                             args: { 
+                                 taskPlan: { taskGraph: [fixTask], executionOrder: [fixTask.id] },
+                                 // We need to pass the context/issues somehow. 
+                                 // CodeGenerator uses `taskPlan` or `context`.
+                                 // We can pass the issues in the task description.
+                             }
+                         };
+
+                         // 2. CodeModifier (to apply fixes)
+                         const codeModStep: PipelineStep = {
+                             step: 900 + retryCount * 3 + 1,
+                             agent: 'CodeModifier',
+                             parallel: false
+                         };
+
+                         // 3. Executor (to verify)
+                         const execStep: PipelineStep = {
+                             step: 900 + retryCount * 3 + 2,
+                             agent: 'Executor',
+                             parallel: false,
+                             args: { runTests: true }
+                         };
+
+                         // 4. QualityAssurance (to re-verify)
+                         const qaStep: PipelineStep = {
+                             step: 900 + retryCount * 3 + 3,
+                             agent: 'QualityAssurance',
+                             parallel: false,
+                             args: { originalRequirements: context.query }
+                         };
+
+                         // Add to queue
+                         executionQueue.unshift([codeGenStep], [codeModStep], [execStep], [qaStep]);
+                     } else {
+                         this.emitStatus(onStatus, {
+                            phase: 'Quality Assurance',
+                            currentAgent: 'QualityAssurance',
+                            progress: Math.round((completedSteps / totalSteps) * 100),
+                            message: `QA Failed. Max retries reached. Stopping.`,
+                            isComplete: false,
+                            hasError: true
+                         });
+                     }
+                 }
             }
 
             // Check for failures
@@ -318,7 +425,7 @@ export class PipelineEngine {
             symbols: plan.symbolSearch
         };
 
-        const fileMatches = await this.fileFinder.find(searchIntent, activeFilePath);
+        const fileMatches = await this.fileFinder.find(searchIntent, activeFilePath) || [];
 
         // Filter by plan's file patterns if strict
         const filteredFiles = fileMatches.filter(f => {
@@ -595,23 +702,61 @@ export class PipelineEngine {
                         if (context.currentPlan && context.currentPlan.length > 0 &&
                             (context.decision.complexity === 'complex' || context.decision.complexity === 'medium')) {
                             await this.executeDynamicLoop(context);
-                            result = { success: true, message: "Dynamic execution completed" };
+                            // After loop, check result
+                            const lastResult = context.results.get('Executor')?.payload;
+                            if (!lastResult) {
+                                result = { success: true, message: "Dynamic execution completed" };
+                            } else {
+                                result = lastResult;
+                            }
                         } else {
                             // Fallback to legacy sequential execution
-                            const cmdGenResult = context.results.get('CommandGenerator')?.payload;
-                            const codeGenResult = context.results.get('CodeGenerator')?.payload;
+                            let commands: string[] = [];
 
-                            const commands = [
-                                ...(cmdGenResult?.commands || []),
-                                ...(codeGenResult?.commands || [])
-                            ];
+                            if (step.args?.commands) {
+                                commands = step.args.commands;
+                            } else {
+                                const cmdGenResult = context.results.get('CommandGenerator')?.payload;
+                                const codeGenResult = context.results.get('CodeGenerator')?.payload;
+
+                                commands = [
+                                    ...(cmdGenResult?.commands || []),
+                                    ...(codeGenResult?.commands || [])
+                                ];
+                            }
 
                             result = await this.executor.execute({
                                 commands: commands,
-                                cwd: vscode.workspace.workspaceFolders?.[0].uri.fsPath
+                                cwd: vscode.workspace.workspaceFolders?.[0].uri.fsPath,
+                                runTests: step.args?.runTests
                             } as any);
                         }
                         break;
+                    case 'Architect':
+                         result = await this.architect.execute({
+                             query: context.query,
+                             projectType: step.args?.projectType,
+                             existingFiles: context.results.get('FileSearch')?.payload?.map((f: FileMatch) => f.relativePath) || []
+                         });
+                         break;
+                    case 'QualityAssurance':
+                         // QA needs access to original requirements and implemented files
+                         const taskPlan = context.results.get('TaskPlanner')?.payload;
+                         // Assuming implemented files are tracked or can be inferred
+                         const implementedFiles = taskPlan?.tasks?.map((t: any) => t.file) || [];
+                         
+                         // QA might need test results from Executor if available
+                         const execResult = context.results.get('Executor')?.payload;
+                         
+                         result = await this.qualityAssurance.execute({
+                             originalRequirements: step.args?.originalRequirements || context.query,
+                             implementedFiles: implementedFiles,
+                             testResults: execResult ? {
+                                 passed: execResult.success, // Assuming Executor returns success status
+                                 output: execResult.output || execResult.stdout || ''
+                             } : undefined
+                         });
+                         break;
                     case 'DocWriter':
                         result = await this.docWriter.execute({
                             context: Object.fromEntries(context.results)

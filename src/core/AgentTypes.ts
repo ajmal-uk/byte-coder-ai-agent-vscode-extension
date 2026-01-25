@@ -6,7 +6,7 @@
 // ===== AGENT OUTPUT TYPES =====
 
 export type AgentStatus = 'success' | 'failed' | 'partial' | 'running';
-export type IntentType = 'Build' | 'Fix' | 'Modify' | 'Explain' | 'Design' | 'Audit' | 'Expand';
+export type IntentType = 'Build' | 'Fix' | 'Modify' | 'Explain' | 'Design' | 'Audit' | 'Expand' | 'Command';
 export type QueryType = 'fix' | 'explain' | 'refactor' | 'test' | 'optimize' | 'security' | 'build' | 'design' | 'general';
 export type Complexity = 'simple' | 'medium' | 'complex';
 
@@ -68,6 +68,8 @@ export interface Checkpoint {
     diffHash: string;
     rollbackCommand: string;
     description: string;
+    sessionId?: string;
+    requestId?: string;
 }
 
 // ===== FILE/CODE TYPES =====
@@ -96,6 +98,7 @@ export interface CommandSpec {
     args: string[];
     cwd?: string;
     requiresConfirmation?: boolean;
+    runInTerminal?: boolean; // Indicates if command requires a visible terminal
     platform?: 'windows' | 'darwin' | 'linux' | 'all';
     description: string;
 }
@@ -138,6 +141,8 @@ export interface TaskNode {
     status?: 'pending' | 'in_progress' | 'completed' | 'failed';
     output?: any;
     retryCount?: number;
+    command?: string;
+    type?: 'file_edit' | 'command' | 'test' | 'other';
 }
 
 export interface CodePlan {

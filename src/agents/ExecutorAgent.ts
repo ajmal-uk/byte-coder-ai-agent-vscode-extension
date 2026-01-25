@@ -17,6 +17,7 @@ export interface ExecutorInput {
     timeout?: number;
     expectSuccess?: boolean;
     parseErrors?: boolean;
+    runInTerminal?: boolean; // New: run in visible terminal
 }
 
 export interface ExecutorOutput extends ExecutionResult {
@@ -70,6 +71,7 @@ export class ExecutorAgent extends BaseAgent<ExecutorInput, ExecutorOutput> {
                 let combinedStderr = '';
 
                 for (const cmd of input.commands) {
+                    if (!cmd) continue;
                     let cmdResult: ExecutorOutput;
 
                     if (typeof cmd === 'string') {
@@ -105,7 +107,11 @@ export class ExecutorAgent extends BaseAgent<ExecutorInput, ExecutorOutput> {
                         }
                     } else if (cmd.command) {
                         // CommandSpec object
-                        cmdResult = await this.runCommand({ ...input, command: cmd.command });
+                        if (cmd.runInTerminal) {
+                            cmdResult = await this.runInTerminal({ ...input, command: cmd.command });
+                        } else {
+                            cmdResult = await this.runCommand({ ...input, command: cmd.command });
+                        }
                     } else {
                         // Unknown format
                         continue;
@@ -114,7 +120,12 @@ export class ExecutorAgent extends BaseAgent<ExecutorInput, ExecutorOutput> {
                     results.push(cmdResult);
                     combinedStdout += cmdResult.stdout + '\n';
                     combinedStderr += cmdResult.stderr + '\n';
-                    if (!cmdResult.success) overallSuccess = false;
+                    if (!cmdResult.success) {
+                        overallSuccess = false;
+                        // Stop execution of subsequent commands if one fails
+                        // This mimics 'set -e' behavior and prevents cascading failures
+                        break; 
+                    }
                 }
 
                 result = {
@@ -130,7 +141,11 @@ export class ExecutorAgent extends BaseAgent<ExecutorInput, ExecutorOutput> {
 
             } else if (input.command) {
                 // Single command
-                result = await this.runCommand(input);
+                if (input.runInTerminal) {
+                    result = await this.runInTerminal(input);
+                } else {
+                    result = await this.runCommand(input);
+                }
             } else {
                 throw new Error("No command provided to Executor");
             }
@@ -158,6 +173,43 @@ export class ExecutorAgent extends BaseAgent<ExecutorInput, ExecutorOutput> {
         } catch (error) {
             return this.handleError(error as Error, startTime);
         }
+    }
+
+    /**
+     * Run a command in a visible VS Code terminal
+     */
+    private runInTerminal(input: ExecutorInput): Promise<ExecutorOutput> {
+        return new Promise((resolve) => {
+            const startTime = Date.now();
+            const cwd = input.cwd || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+            const cmdString = input.command || 'echo "No command provided"';
+
+            // Create or reuse terminal
+            let terminal = vscode.window.terminals.find(t => t.name === 'Byte Coder Executor');
+            if (!terminal) {
+                terminal = vscode.window.createTerminal({
+                    name: 'Byte Coder Executor',
+                    cwd: cwd
+                });
+            }
+
+            terminal.show(true); // Show but don't take focus
+            terminal.sendText(cmdString);
+
+            // Since we can't easily get exit code from terminal without complex listeners,
+            // we assume success for interactive/background tasks or advise user to check.
+            // For rigorous verification, standard runCommand is better.
+            
+            resolve({
+                command: cmdString,
+                exitCode: 0, // Assumed success for terminal launch
+                stdout: `Command sent to terminal: ${cmdString}`,
+                stderr: '',
+                success: true,
+                duration: Date.now() - startTime,
+                recoveryOptions: []
+            });
+        });
     }
 
     /**
@@ -199,214 +251,100 @@ export class ExecutorAgent extends BaseAgent<ExecutorInput, ExecutorOutput> {
                     recoveryOptions: []
                 });
             });
-
-            // Handle timeout
-            setTimeout(() => {
-                if (child && !child.killed) {
-                    try {
-                        child.kill();
-                    } catch (e) {
-                        // ignore
-                    }
-                }
-            }, timeout);
         });
     }
 
-    /**
-     * Extract error location from output
-     */
     private extractErrorLocation(output: string): FileLocation | undefined {
         for (const pattern of this.LOCATION_PATTERNS) {
             const match = output.match(pattern);
             if (match) {
                 return {
                     file: match[1],
-                    startLine: parseInt(match[2], 10),
-                    endLine: parseInt(match[2], 10),
-                    confidence: 0.85,
-                    reason: 'Extracted from error output'
+                    startLine: parseInt(match[2]),
+                    endLine: parseInt(match[2]),
+                    confidence: 1.0,
+                    reason: 'Stack trace extraction'
                 };
             }
         }
         return undefined;
     }
 
-    /**
-     * Parse error message for type and details
-     */
-    private parseError(output: string): { errorType: string; errorMessage: string; suggestions: string[] } {
+    private parseError(output: string): { errorType: string; errorMessage: string; suggestions: string[] } | undefined {
         for (const { pattern, type } of this.ERROR_PATTERNS) {
             const match = output.match(pattern);
             if (match) {
                 return {
                     errorType: type,
-                    errorMessage: match[1] || match[0],
+                    errorMessage: match[1],
                     suggestions: this.getSuggestionsForError(type, match[1])
                 };
             }
         }
-
-        return {
-            errorType: 'Unknown',
-            errorMessage: output.split('\n')[0].slice(0, 200),
-            suggestions: ['Check the full error output for details']
-        };
+        return undefined;
     }
 
-    /**
-     * Get suggestions for specific error types
-     */
-    private getSuggestionsForError(errorType: string, details: string): string[] {
-        const suggestions: string[] = [];
-
-        switch (errorType) {
+    private getSuggestionsForError(type: string, message: string): string[] {
+        // Simple heuristic suggestions
+        switch (type) {
             case 'ModuleNotFound':
-                suggestions.push(`Run: npm install ${details}`);
-                suggestions.push('Check if the module name is spelled correctly');
-                suggestions.push('Verify the import path is correct');
-                break;
+                return [`Run 'npm install ${message}'`, 'Check import path'];
             case 'TypeError':
-                suggestions.push('Check if the variable is defined before use');
-                suggestions.push('Verify the type matches expected usage');
-                suggestions.push('Add null/undefined checks');
-                break;
+                return ['Check variable types', 'Verify object properties'];
             case 'SyntaxError':
-                suggestions.push('Check for missing brackets, quotes, or semicolons');
-                suggestions.push('Verify the syntax is valid for your language version');
-                break;
-            case 'PropertyError':
-                suggestions.push('Check if the property name is spelled correctly');
-                suggestions.push('Verify the object type has this property');
-                suggestions.push('Add the property to the interface if needed');
-                break;
-            case 'TypeMismatch':
-                suggestions.push('Check the expected type and convert if needed');
-                suggestions.push('Update the interface to allow this type');
-                suggestions.push('Use type assertion if the types are compatible');
-                break;
-            case 'FileNotFound':
-                suggestions.push('Check if the file path is correct');
-                suggestions.push('Create the missing file or directory');
-                suggestions.push('Verify the current working directory');
-                break;
+                return ['Check for missing brackets or semicolons', 'Verify language syntax'];
             default:
-                suggestions.push('Review the error message for details');
-                suggestions.push('Search for similar issues online');
+                return ['Check documentation', 'Search for error message'];
         }
-
-        return suggestions;
     }
 
-    /**
-     * Generate recovery options for failed execution
-     */
-    private generateRecoveryOptions(result: ExecutorOutput): ExecutionResult['recoveryOptions'] {
-        const options: ExecutionResult['recoveryOptions'] = [];
-
+    private generateRecoveryOptions(result: ExecutorOutput): any[] {
+        const options: any[] = [];
+        
         if (!result.parsed) return options;
 
-        switch (result.parsed.errorType) {
-            case 'ModuleNotFound':
-                const moduleName = result.stderr.match(/Cannot find module '([^']+)'/)?.[1];
-                if (moduleName) {
-                    options.push({
-                        strategy: 'install_missing_module',
-                        confidence: 0.9,
-                        requiredChanges: []
-                    });
-                }
-                break;
-            case 'TypeMismatch':
-            case 'PropertyError':
-                if (result.errorLocation) {
-                    options.push({
-                        strategy: 'fix_type_error',
-                        confidence: 0.7,
-                        requiredChanges: [{
-                            filePath: result.errorLocation.file,
-                            startLine: result.errorLocation.startLine,
-                            endLine: result.errorLocation.endLine,
-                            searchBlock: '',  // Would need to be determined
-                            replaceBlock: ''  // Would need AI to generate fix
-                        }]
-                    });
-                }
-                break;
-            case 'SyntaxError':
+        const { errorType, errorMessage } = result.parsed;
+
+        if (errorType === 'ModuleNotFound') {
+            // Suggest installing package
+            // Extract package name (simple heuristic)
+            const pkgMatch = errorMessage.match(/'([^']+)'/);
+            const pkg = pkgMatch ? pkgMatch[1] : errorMessage;
+            
+            options.push({
+                strategy: 'install_dependency',
+                confidence: 0.95,
+                command: `npm install ${pkg}`,
+                description: `Install missing dependency: ${pkg}`
+            });
+        }
+        else if (errorType === 'FileNotFound') {
+            // Suggest creating file
+            const fileMatch = errorMessage.match(/'([^']+)'/);
+            if (fileMatch) {
                 options.push({
-                    strategy: 'fix_syntax',
-                    confidence: 0.6
+                    strategy: 'create_file',
+                    confidence: 0.85,
+                    command: `touch ${fileMatch[1]}`,
+                    description: `Create missing file: ${fileMatch[1]}`
                 });
-                break;
+            }
+        }
+        else if (errorType === 'SyntaxError') {
+             options.push({
+                 strategy: 'fix_syntax',
+                 confidence: 0.8,
+                 description: 'Request CodeModifier to fix syntax error at identified location'
+             });
+        }
+        else if (errorType === 'TypeError' || errorType === 'ReferenceError') {
+             options.push({
+                 strategy: 'debug_code',
+                 confidence: 0.7,
+                 description: 'Request analysis and fix for type/reference error'
+             });
         }
 
-        // Always add retry option
-        options.push({
-            strategy: 'retry_with_verbose',
-            confidence: 0.3
-        });
-
         return options;
-    }
-
-    /**
-     * Run a command and stream output
-     */
-    async executeWithStreaming(
-        input: ExecutorInput,
-        onStdout: (data: string) => void,
-        onStderr: (data: string) => void
-    ): Promise<ExecutorOutput> {
-        return new Promise((resolve) => {
-            const startTime = Date.now();
-            const cwd = input.cwd || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
-            const cmdString = input.command || 'echo "No command provided"';
-
-            let stdout = '';
-            let stderr = '';
-
-            const child = cp.spawn(cmdString, {
-                shell: true,
-                cwd,
-                env: { ...process.env, FORCE_COLOR: '0' }
-            });
-
-            child.stdout.on('data', (data: Buffer) => {
-                const str = data.toString();
-                stdout += str;
-                onStdout(str);
-            });
-
-            child.stderr.on('data', (data: Buffer) => {
-                const str = data.toString();
-                stderr += str;
-                onStderr(str);
-            });
-
-            child.on('close', (code: number | null) => {
-                resolve({
-                    command: cmdString,
-                    exitCode: code || 0,
-                    stdout: stdout.slice(0, 5000),
-                    stderr: stderr.slice(0, 5000),
-                    success: code === 0,
-                    duration: Date.now() - startTime,
-                    recoveryOptions: []
-                });
-            });
-
-            child.on('error', (error: Error) => {
-                resolve({
-                    command: cmdString,
-                    exitCode: 1,
-                    stdout: '',
-                    stderr: error.message,
-                    success: false,
-                    duration: Date.now() - startTime,
-                    recoveryOptions: []
-                });
-            });
-        });
     }
 }

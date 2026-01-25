@@ -52,6 +52,27 @@ export class CodeExtractorAgent {
             /^(\s*)async\s+def\s+(\w+)\s*\(/,
             /^(\s*)class\s+(\w+)/,
         ],
+        'go': [
+            /^(\s*)func\s+(\w+)\s*\(/,
+            /^(\s*)type\s+(\w+)\s+struct/,
+            /^(\s*)type\s+(\w+)\s+interface/,
+        ],
+        'rs': [
+            /^(\s*)fn\s+(\w+)\s*\(/,
+            /^(\s*)pub\s+fn\s+(\w+)\s*\(/,
+            /^(\s*)struct\s+(\w+)/,
+            /^(\s*)impl\s+(\w+)/,
+            /^(\s*)trait\s+(\w+)/,
+        ],
+        'java': [
+            /^(\s*)(public|protected|private|static|\s)*class\s+(\w+)/,
+            /^(\s*)(public|protected|private|static|\s)*interface\s+(\w+)/,
+            /^(\s*)(public|protected|private|static|\s)*\w+\s+(\w+)\s*\([^)]*\)\s*\{/,
+        ],
+        'cpp': [
+            /^(\s*)(class|struct)\s+(\w+)/,
+            /^(\s*)(\w+)\s+(\w+)\s*\([^)]*\)\s*\{/,
+        ],
     };
 
     /**

@@ -23,6 +23,8 @@ export interface ManagerInput {
     hasImage?: boolean;
     projectType?: string;
     recentErrors?: string[];
+    sessionId?: string;
+    requestId?: string;
 }
 
 interface IntentPattern {
@@ -59,6 +61,10 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
         },
         'Expand': {
             keywords: ['full', 'entire', 'complete', 'rest', 'continue', 'more', 'expand', 'extend', 'give full'],
+            weight: 0.95
+        },
+        'Command': {
+            keywords: ['run', 'execute', 'command', 'terminal', 'shell', 'git', 'npm', 'yarn', 'curl', 'wget', 'clone', 'commit', 'push', 'pull', 'install', 'test api', 'check url', 'ls ', 'pwd', 'cp ', 'mv ', 'rm ', 'mkdir', 'cat ', 'echo ', 'touch '],
             weight: 0.95
         }
     };
@@ -122,7 +128,7 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
     private classifyIntent(query: string): { intent: IntentType; intentConfidence: number } {
         const lowerQuery = query.toLowerCase();
         const scores: Record<IntentType, number> = {
-            'Fix': 0, 'Build': 0, 'Modify': 0, 'Explain': 0, 'Design': 0, 'Audit': 0, 'Expand': 0
+            'Fix': 0, 'Build': 0, 'Modify': 0, 'Explain': 0, 'Design': 0, 'Audit': 0, 'Expand': 0, 'Command': 0
         };
 
         // Score each intent based on keyword matches
@@ -310,63 +316,93 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
         }
 
         // PLANNING PHASE (for complex or build intents)
-        if (intent === 'Build' || intent === 'Design' || complexity === 'complex') {
-            const processPlannerStep = step;
-            pipeline.push({
-                step: step++,
-                agent: 'ProcessPlanner',
-                parallel: false
-            });
+        if (intent === 'Build' || intent === 'Design' || intent === 'Command' || complexity === 'complex') {
+            // Add Architect Agent for high-level system design
+            // Only for Build/Design or very complex tasks, not for simple Command sequences
+            if (intent === 'Build' || intent === 'Design' || (complexity === 'complex' && intent !== 'Command')) {
+                pipeline.push({
+                    step: step++,
+                    agent: 'Architect',
+                    parallel: false,
+                    required: true,
+                    args: { projectType: input.projectType }
+                });
 
-            const codePlannerStep = step;
-            pipeline.push({
-                step: step++,
-                agent: 'CodePlanner',
-                parallel: false,
-                dependency: processPlannerStep
-            });
+                const processPlannerStep = step;
+                pipeline.push({
+                    step: step++,
+                    agent: 'ProcessPlanner',
+                    parallel: false,
+                    dependency: step - 2 // Depends on Architect
+                });
 
+                const codePlannerStep = step;
+                pipeline.push({
+                    step: step++,
+                    agent: 'CodePlanner',
+                    parallel: false,
+                    dependency: processPlannerStep
+                });
+            }
+
+            // TaskPlanner is useful for Command sequences too
             pipeline.push({
                 step: step++,
                 agent: 'TaskPlanner',
                 parallel: false,
-                dependency: codePlannerStep
+                // Depends on CodePlanner if it ran, otherwise on previous steps
+                dependency: step - 1 
             });
         }
 
-        // EXECUTION PHASE (for modify/fix/build)
-        if (intent !== 'Explain' && intent !== 'Audit' && intent !== 'Expand') {
+        // EXECUTION PHASE (for modify/fix/build or explicit execution requests)
+        if (this.requiresExecution(input.query, intent)) {
             // Create checkpoint before modifications
-            pipeline.push({
-                step: step++,
-                agent: 'VersionController',
-                parallel: false,
-                required: true,
-                args: { action: 'create_checkpoint' }
-            });
-
-            // Run CodeGenerator for Build, Modify, and Fix
-            if (intent === 'Build' || intent === 'Modify' || intent === 'Fix') {
+            if (intent !== 'Audit' && intent !== 'Explain') {
                 pipeline.push({
                     step: step++,
-                    agent: 'CodeGenerator',
-                    parallel: false
+                    agent: 'VersionController',
+                    parallel: false,
+                    required: true,
+                    args: { 
+                        action: 'create_checkpoint',
+                        sessionId: input.sessionId,
+                        requestId: input.requestId
+                    }
                 });
+            }
+
+            // Run CodeGenerator for Build, Modify, Fix, and Command (if needed)
+            if (intent === 'Build' || intent === 'Modify' || intent === 'Fix' || intent === 'Command') {
+                if (intent !== 'Command') {
+                    pipeline.push({
+                        step: step++,
+                        agent: 'CodeGenerator',
+                        parallel: false
+                    });
+                }
 
                 pipeline.push({
                     step: step++,
                     agent: 'CommandGenerator',
                     parallel: false,
-                    args: { generateStructure: intent === 'Build' }
+                    args: { 
+                        generateStructure: intent === 'Build',
+                        context: input.query,
+                        operation: intent === 'Command' ? 'custom' : undefined
+                    }
                 });
             }
 
-            pipeline.push({
-                step: step++,
-                agent: 'CodeModifier',
-                parallel: false,
-                required: true
-            });
+            // For Audit/Stress Test, we might skip code mod but need execution
+            if (intent !== 'Audit' && intent !== 'Explain' && intent !== 'Command') {
+                pipeline.push({
+                    step: step++,
+                    agent: 'CodeModifier',
+                    parallel: false,
+                    required: true
+                });
+            }
 
             pipeline.push({
                 step: step++,
@@ -375,6 +411,17 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
                 required: true,
                 args: { runTests: true }
             });
+
+            // QA PHASE - Rigorous testing and validation
+            if (intent !== 'Audit' && intent !== 'Command') {
+                pipeline.push({
+                    step: step++,
+                    agent: 'QualityAssurance',
+                    parallel: false,
+                    required: true,
+                    args: { originalRequirements: input.query }
+                });
+            }
         }
 
         // DOCUMENTATION PHASE (for build or complex changes)
@@ -394,6 +441,20 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
      */
     private shouldRunParallel(pipeline: PipelineStep[]): boolean {
         return pipeline.some(step => step.parallel === true);
+    }
+
+    /**
+     * Determine if the intent/query requires dynamic execution
+     */
+    private requiresExecution(query: string, intent: IntentType): boolean {
+        const lowerQuery = query.toLowerCase();
+        const executionKeywords = ['run', 'execute', 'start', 'launch', 'test', 'benchmark', 'stress', 'load', 'debug'];
+        
+        // Always execute for Build/Modify/Fix/Command
+        if (intent === 'Build' || intent === 'Modify' || intent === 'Fix' || intent === 'Command') return true;
+        
+        // For Audit/Explain, check for explicit execution request
+        return executionKeywords.some(kw => lowerQuery.includes(kw));
     }
 
     /**
@@ -436,7 +497,8 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
             'Explain': 'Gathering context to explain...',
             'Design': 'Analyzing requirements and architecting solution...',
             'Audit': 'Scanning codebase for issues...',
-            'Expand': 'Retrieving full content...'
+            'Expand': 'Retrieving full content...',
+            'Command': 'Preparing terminal commands...'
         };
 
         return messages[intent] || 'Processing your request...';

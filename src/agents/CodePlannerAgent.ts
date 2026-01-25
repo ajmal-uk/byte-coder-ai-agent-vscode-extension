@@ -151,7 +151,7 @@ export class CodePlannerAgent extends BaseAgent<CodePlannerInput, CodePlannerRes
         }
 
         // Filter existing files if provided
-        if (input.existingFiles?.length) {
+        if (input.existingFiles && input.existingFiles.length > 0) {
             return structure.filter(f => !input.existingFiles!.some(e => e.includes(f.replace('/', ''))));
         }
 
