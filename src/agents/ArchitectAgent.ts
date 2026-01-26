@@ -17,6 +17,16 @@ export interface ArchitectureDesign {
         description: string;
         responsibilities: string[];
     }[];
+    dataModels: {
+        name: string;
+        fields: string[];
+        relationships?: string[];
+    }[];
+    apiEndpoints?: {
+        method: string;
+        path: string;
+        description: string;
+    }[];
     designPatterns: string[];
 }
 
@@ -41,7 +51,9 @@ Design a software architecture for this request.
 1. Choose the best architecture pattern (e.g., MVC, Layered, Component-Based, Microservices).
 2. Define the file structure (new files to create).
 3. Identify key components and their responsibilities.
-4. Recommend design patterns.
+4. Define core Data Models (entities, schemas) with fields and relationships.
+5. Define key API Endpoints (if applicable) with methods and paths.
+6. Recommend design patterns.
 
 Output ONLY a JSON object with this structure:
 {
@@ -50,6 +62,12 @@ Output ONLY a JSON object with this structure:
   "fileStructure": ["path/to/file1.ts", "path/to/file2.ts"],
   "components": [
     { "name": "Component Name", "description": "What it does", "responsibilities": ["Task 1", "Task 2"] }
+  ],
+  "dataModels": [
+    { "name": "User", "fields": ["id: string", "email: string"], "relationships": ["HasMany Orders"] }
+  ],
+  "apiEndpoints": [
+    { "method": "GET", "path": "/api/users", "description": "List users" }
   ],
   "designPatterns": ["Pattern 1", "Pattern 2"]
 }
@@ -89,6 +107,7 @@ Output ONLY a JSON object with this structure:
             techStack: ["TypeScript", "Node.js"],
             fileStructure: ["src/index.ts", "src/utils.ts"],
             components: [{ name: "Core", description: "Main logic", responsibilities: ["Processing"] }],
+            dataModels: [],
             designPatterns: ["Module Pattern"]
         };
     }

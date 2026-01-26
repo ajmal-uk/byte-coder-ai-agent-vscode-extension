@@ -846,7 +846,19 @@ export class PipelineEngine {
                         result = fullContent || "Could not retrieve full content. Please specify a valid file.";
                         break;
                     default:
-                        result = null;
+                        // Try to execute generically if agent exists
+                        if (agent && typeof agent.execute === 'function') {
+                            // Use step.args as input, or fallback to query if input type matches string
+                            const input = step.args || { query: context.query };
+                            const output = await agent.execute(input);
+                            if (output && output.status === 'failed' && output.error) {
+                                throw new Error(output.error.message);
+                            }
+                            result = output.status === 'success' ? output.payload : null;
+                        } else {
+                            result = null;
+                        }
+                        break;
                 }
 
                 context.results.set(step.agent, {

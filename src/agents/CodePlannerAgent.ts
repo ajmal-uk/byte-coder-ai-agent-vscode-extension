@@ -27,6 +27,7 @@ export interface CodePlannerResult extends CodePlan {
     devDependencies: string[];
     configFiles: { name: string; purpose: string }[];
     folderPurposes: { folder: string; purpose: string }[];
+    fileSpecs?: { filePath: string; spec: string }[];
     techStack?: {
         frontend?: string;
         backend?: string;
@@ -107,6 +108,9 @@ export class CodePlannerAgent extends BaseAgent<CodePlannerInput, CodePlannerRes
             // Generate folder purposes
             const folderPurposes = this.generateFolderPurposes(input.projectType);
 
+            // Generate detailed file specifications (NEW)
+            const fileSpecs = await this.generateFileSpecs(input, fileStructure, interfaces);
+
             const result: CodePlannerResult = {
                 fileStructure,
                 interfaces,
@@ -115,7 +119,8 @@ export class CodePlannerAgent extends BaseAgent<CodePlannerInput, CodePlannerRes
                 dependencies,
                 devDependencies,
                 configFiles,
-                folderPurposes
+                folderPurposes,
+                fileSpecs
             };
 
             const keyFiles = fileStructure.slice(0, 3).map(f => `\`${f}\``).join(', ');
@@ -129,6 +134,55 @@ export class CodePlannerAgent extends BaseAgent<CodePlannerInput, CodePlannerRes
         } catch (error) {
             return this.handleError(error as Error, startTime);
         }
+    }
+
+    /**
+     * Generate detailed specifications for key files
+     */
+    private async generateFileSpecs(input: CodePlannerInput, files: string[], interfaces: string[]): Promise<{ filePath: string; spec: string }[]> {
+        if (files.length === 0) return [];
+        
+        // Only generate specs for the most important files to save tokens/time
+        // Filter out config files, simple indexes, etc.
+        const importantFiles = files.filter(f => 
+            !f.endsWith('.json') && 
+            !f.endsWith('.d.ts') && 
+            !f.includes('test') &&
+            (f.endsWith('.ts') || f.endsWith('.tsx') || f.endsWith('.js') || f.endsWith('.py'))
+        ).slice(0, 10); // Limit to top 10 files
+
+        if (importantFiles.length === 0) return [];
+
+        const prompt = `
+You are a Lead Software Engineer.
+User Request: "${input.query}"
+Proposed Files: ${importantFiles.join(', ')}
+Key Interfaces: ${interfaces.slice(0, 5).join('\n')}
+
+For each file, write a concise "Specification".
+The spec should include:
+1. **Exports**: What functions/classes it exports.
+2. **Key Logic**: Brief pseudo-code or description of complex algorithms.
+3. **Dependencies**: What other files/libraries it likely needs.
+
+Output ONLY a JSON array of objects:
+[
+  { "filePath": "path/to/file.ts", "spec": "Exports User class with save() method. Uses mongoose model..." }
+]
+`;
+        try {
+            const response = await this.client.generateResponse(prompt);
+            const jsonMatch = response.match(/\[[\s\S]*\]/);
+            if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0]);
+                if (Array.isArray(parsed)) {
+                    return parsed;
+                }
+            }
+        } catch (e) {
+            console.warn('Spec generation failed', e);
+        }
+        return [];
     }
 
     /**

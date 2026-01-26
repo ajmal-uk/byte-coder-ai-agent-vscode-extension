@@ -143,7 +143,10 @@ export interface TaskNode {
     output?: any;
     retryCount?: number;
     command?: string;
-    type?: 'file_edit' | 'command' | 'test' | 'other';
+    type?: 'file_edit' | 'command' | 'test' | 'other' | 'code';
+    parallelGroup?: string;
+    assignedAgent?: string;
+    complexity?: 'simple' | 'medium' | 'complex';
 }
 
 export interface CodePlan {

@@ -66,6 +66,11 @@ export class WebSearchAgent extends BaseAgent<WebSearchInput, WebSearchResult> {
         }
     }
 
+    private async execCommand(command: string): Promise<{ stdout: string, stderr: string }> {
+        // execute with larger buffer (5MB) and timeout (30s)
+        return exec(command, { maxBuffer: 5 * 1024 * 1024, timeout: 30000 });
+    }
+
     private determineStrategy(input: WebSearchInput): 'cheat.sh' | 'npm' | 'pip' | 'curl' | 'wikipedia' {
         const q = input.query.toLowerCase();
         
@@ -102,7 +107,7 @@ private async searchWikipedia(query: string): Promise<WebSearchResult> {
     const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(cleanQuery)}&format=json`;
     
     try {
-        const { stdout } = await exec(`curl -sL "${searchUrl}"`);
+        const { stdout } = await this.execCommand(`curl -sL "${searchUrl}"`);
         const data = JSON.parse(stdout);
         
         if (!data.query?.search?.length) {
@@ -114,7 +119,7 @@ private async searchWikipedia(query: string): Promise<WebSearchResult> {
         
         // 2. Get content
         const contentUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&pageids=${pageId}&format=json`;
-        const { stdout: contentOut } = await exec(`curl -sL "${contentUrl}"`);
+        const { stdout: contentOut } = await this.execCommand(`curl -sL "${contentUrl}"`);
         const contentData = JSON.parse(contentOut);
         
         const page = contentData.query?.pages?.[pageId];
@@ -174,7 +179,7 @@ private async searchWikipedia(query: string): Promise<WebSearchResult> {
         const command = `curl -sL "https://cheat.sh/${path}?T"`; // ?T removes ANSI colors
 
         try {
-            const { stdout } = await exec(command);
+            const { stdout } = await this.execCommand(command);
             
             // Check for errors or empty output
             if (!stdout || stdout.includes('Unknown topic') || stdout.includes('Unknown cheat sheet') || stdout.includes('404 NOT FOUND') || stdout.includes('Internal Server Error') || stdout.length < 50) {
@@ -182,7 +187,7 @@ private async searchWikipedia(query: string): Promise<WebSearchResult> {
                 if (language && topic) {
                     // Try just language
                     const simpleCommand = `curl -sL "https://cheat.sh/${language}?T"`;
-                    const { stdout: simpleOut } = await exec(simpleCommand);
+                    const { stdout: simpleOut } = await this.execCommand(simpleCommand);
                     if (simpleOut && !simpleOut.includes('Internal Server Error') && !simpleOut.includes('Unknown topic')) {
                          return {
                             source: 'cheat.sh',
@@ -218,7 +223,7 @@ private async searchWikipedia(query: string): Promise<WebSearchResult> {
         const command = `npm view ${pkg} name description keywords repository.url homepage --json`;
         
         try {
-            const { stdout } = await exec(command);
+            const { stdout } = await this.execCommand(command);
             const data = JSON.parse(stdout);
             
             let content = `Package: ${data.name}\nDescription: ${data.description}\nKeywords: ${data.keywords?.join(', ')}\nRepo: ${data.repository?.url}\nHomepage: ${data.homepage}`;
@@ -232,7 +237,7 @@ private async searchWikipedia(query: string): Promise<WebSearchResult> {
         } catch (e) {
             // Fallback to search
             const searchCmd = `npm search ${pkg} --json --limit 3`;
-            const { stdout } = await exec(searchCmd);
+            const { stdout } = await this.execCommand(searchCmd);
             return {
                 source: 'npm search',
                 content: `Search Results:\n${stdout}`,
@@ -250,7 +255,7 @@ private async searchWikipedia(query: string): Promise<WebSearchResult> {
         const command = `curl -sL "https://pypi.org/pypi/${pkg}/json"`;
 
         try {
-            const { stdout } = await exec(command);
+            const { stdout } = await this.execCommand(command);
             const data = JSON.parse(stdout);
             const info = data.info;
             
@@ -273,7 +278,7 @@ private async searchWikipedia(query: string): Promise<WebSearchResult> {
             try {
                 // Use curl with a user agent to avoid blocking
                 const command = `curl -sL -A "Mozilla/5.0" "${query}" | head -n 500`; 
-                const { stdout } = await exec(command);
+                const { stdout } = await this.execCommand(command);
                 
                 // Simple HTML stripping (very basic)
                 const textContent = stdout.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 3000);
@@ -295,10 +300,10 @@ private async searchWikipedia(query: string): Promise<WebSearchResult> {
 
         // 2. Try ddgr (DuckDuckGo CLI) if installed
         try {
-            const { stdout } = await exec('which ddgr');
+            const { stdout } = await this.execCommand('which ddgr');
             if (stdout) {
                 const command = `ddgr --json --num 3 "${query}"`;
-                const { stdout: searchOut } = await exec(command);
+                const { stdout: searchOut } = await this.execCommand(command);
                 return {
                     source: 'ddgr',
                     content: searchOut,
@@ -314,7 +319,7 @@ private async searchWikipedia(query: string): Promise<WebSearchResult> {
         try {
             const cleanQuery = query.replace(/\s+/g, '+');
             const command = `curl -sL "https://cheat.sh/~${cleanQuery}?T"`;
-            const { stdout } = await exec(command);
+            const { stdout } = await this.execCommand(command);
             
             if (stdout && !stdout.includes('Unknown topic') && !stdout.includes('Internal Server Error') && stdout.length > 50) {
                  return {

@@ -47,22 +47,52 @@ export class CodeGeneratorAgent extends BaseAgent<CodeGeneratorInput, CodeGenera
             const modifications: CodeModification[] = [];
             const generatedFiles: string[] = [];
 
-            // Process tasks to generate code
+            // Group tasks for parallel execution
+            const taskGroups: TaskNode[][] = [];
+            let currentGroup: TaskNode[] = [];
+            let currentGroupId: string | undefined = undefined;
+
             for (const task of input.taskPlan.taskGraph) {
-                if (task.filePath && !task.description.includes('mkdir')) {
-                    // This task involves a file
-                    const result = await this.generateForTask(task, input.codePlan, input.context);
-                    
+                if (task.parallelGroup && task.parallelGroup === currentGroupId) {
+                    currentGroup.push(task);
+                } else {
+                    if (currentGroup.length > 0) {
+                        taskGroups.push(currentGroup);
+                    }
+                    currentGroup = [task];
+                    currentGroupId = task.parallelGroup;
+                }
+            }
+            if (currentGroup.length > 0) {
+                taskGroups.push(currentGroup);
+            }
+
+            // Process task groups
+            for (const group of taskGroups) {
+                const results = await Promise.all(group.map(async (task) => {
+                    if (task.filePath && !task.description.includes('mkdir')) {
+                        return {
+                            task,
+                            result: await this.generateForTask(task, input.codePlan, input.context)
+                        };
+                    }
+                    return null;
+                }));
+
+                for (const item of results) {
+                    if (!item) continue;
+                    const { task, result } = item;
+
                     if (result.type === 'create') {
                         commands.push({
                             operation: 'create_file',
                             target: task.filePath,
                             content: result.content
                         });
-                        generatedFiles.push(task.filePath);
+                        generatedFiles.push(task.filePath!);
                     } else {
                         modifications.push(...result.modifications);
-                        generatedFiles.push(task.filePath);
+                        generatedFiles.push(task.filePath!);
                     }
                 }
             }
@@ -209,6 +239,14 @@ export class CodeGeneratorAgent extends BaseAgent<CodeGeneratorInput, CodeGenera
             context.knowledge.forEach(k => {
                 prompt += `- ${k.summary}\n`;
             });
+        }
+
+        // Add File Spec if available (NEW)
+        if (codePlan.fileSpecs) {
+            const spec = codePlan.fileSpecs.find(s => filePath.endsWith(s.filePath) || s.filePath.endsWith(filePath));
+            if (spec) {
+                prompt += `\n**Detailed Specification for this file:**\n${spec.spec}\n`;
+            }
         }
 
         // Add Web Search Context

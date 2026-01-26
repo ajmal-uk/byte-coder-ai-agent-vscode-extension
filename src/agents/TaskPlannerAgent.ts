@@ -214,22 +214,184 @@ export class TaskPlannerAgent extends BaseAgent<TaskPlannerInput, TaskPlannerRes
     private async generateTaskGraph(input: TaskPlannerInput): Promise<TaskNode[]> {
         const taskType = this.detectTaskType(input);
 
+        let initialTasks: TaskNode[] = [];
+
         switch (taskType) {
             case 'stress_test':
-                return this.generateStressTestTasks(input);
+                initialTasks = this.generateStressTestTasks(input);
+                break;
             case 'simple_modification':
-                return this.generateSimpleModificationTasks(input);
+                initialTasks = this.generateSimpleModificationTasks(input);
+                break;
             case 'complex_modification':
-                return this.generateComplexModificationTasks(input);
+                initialTasks = await this.generateComplexModificationTasks(input);
+                break;
             case 'command_sequence':
-                return this.generateCommandSequenceTasks(input);
+                initialTasks = this.generateCommandSequenceTasks(input);
+                break;
             case 'script_execution':
-                return this.generateScriptTasks(input);
+                initialTasks = this.generateScriptTasks(input);
+                break;
             case 'scaffold':
-                return this.generateScaffoldTasks(input);
+                initialTasks = this.generateScaffoldTasks(input);
+                break;
             case 'generic':
             default:
-                return await this.generateDynamicTasks(input);
+                initialTasks = await this.generateDynamicTasks(input);
+                break;
+        }
+
+        // Apply recursive decomposition for 'complex' tasks
+        return await this.recursiveDecomposition(initialTasks, input);
+    }
+
+    /**
+     * Recursively decompose tasks marked as 'complex' into sub-tasks
+     */
+    private async recursiveDecomposition(tasks: TaskNode[], input: TaskPlannerInput, depth: number = 0): Promise<TaskNode[]> {
+        if (depth > 1) return tasks; // Limit recursion depth to prevent infinite loops
+
+        const resultTasks: TaskNode[] = [];
+        let hasDecomposition = false;
+
+        for (const task of tasks) {
+            // Only decompose if marked complex AND has a description (not a simple command)
+            if (task.complexity === 'complex' && task.type !== 'command' && !task.description.includes('mkdir')) {
+                console.log(`Decomposing complex task: ${task.description}`);
+                const subTasks = await this.decomposeTask(task, input);
+                
+                if (subTasks.length > 0) {
+                    hasDecomposition = true;
+                    // Add subtasks instead of the original task
+                    resultTasks.push(...subTasks);
+                } else {
+                    resultTasks.push(task);
+                }
+            } else {
+                resultTasks.push(task);
+            }
+        }
+
+        // If we decomposed anything, we might need another pass (though depth limit handles this)
+        // For now, let's just do one level of recursion for safety and performance
+        return resultTasks;
+    }
+
+    /**
+     * Decompose a single complex task into smaller steps
+     */
+    private async decomposeTask(parentTask: TaskNode, input: TaskPlannerInput): Promise<TaskNode[]> {
+        const prompt = `
+You are a Senior Technical Lead.
+Parent Task: "${parentTask.description}"
+Target File: "${parentTask.filePath || 'Unknown'}"
+Project Context: ${input.projectType}
+
+The parent task is too complex to be executed as a single unit. 
+Decompose it into 2-5 smaller, atomic sub-tasks.
+
+Output a JSON array of task objects.
+Format:
+[
+  {
+    "id": "subtask_${parentTask.id}_1",
+    "description": "Specific sub-task action",
+    "type": "code" | "command" | "test",
+    "dependencies": [], // Dependencies relative to this sub-list
+    "filePath": "src/path/to/file.ts",
+    "validationCommand": "shell command to verify",
+    "parallelGroup": "${parentTask.parallelGroup || ''}",
+    "assignedAgent": "${parentTask.assignedAgent || 'CodeGenerator'}",
+    "complexity": "simple" | "medium"
+  }
+]
+
+Rules:
+1. Sub-tasks must be concrete and actionable.
+2. Maintain the intent of the parent task.
+3. Inherit context (file path, agent) if applicable, but refine if needed.
+4. Ensure dependencies are correct within the sub-task list.
+5. Output ONLY JSON.
+`;
+
+        try {
+            const response = await this.client.streamResponse(
+                prompt,
+                () => {},
+                (err: Error) => console.warn('Decomposition LLM error:', err)
+            );
+
+            const subTasks = this.parseTaskResponse(response);
+            
+            // Post-process to ensure IDs and dependencies link up correctly
+            // (If the parent had dependencies, the first subtask should inherit them? 
+            // Or the whole group is a replacement? 
+            // In a flattened graph, if Task B depended on Task A, and Task A becomes A1, A2.
+            // Then A1 should have A's dependencies.
+            // Task B should depend on A2 (the last one).
+            // This is complex graph rewriting. 
+            // For now, let's assume 'complex' tasks are usually standalone chunks or we just replace the node.)
+            
+            // Simple approach: 
+            // 1. First subtask inherits parent's dependencies.
+            // 2. Subsequent subtasks depend on previous subtask.
+            // 3. (External nodes depending on Parent need to be updated to depend on Last Subtask - this is hard without graph access)
+            
+            // Since we are iterating the list, we don't easily update other nodes pointing to this one.
+            // HOWEVER, we are replacing the task in the list.
+            // We need to preserve the ID of the parent task effectively, or map it.
+            // Strategy: The LAST subtask should take the ID of the parent task? 
+            // Or we keep the parent ID on the last subtask so downstream deps still work.
+            
+            if (subTasks.length > 0) {
+                // Fix dependencies
+                subTasks[0].dependencies = [...(parentTask.dependencies || [])];
+                
+                // Chain internal dependencies
+                for (let i = 1; i < subTasks.length; i++) {
+                    subTasks[i].dependencies = [subTasks[i-1].id];
+                }
+
+                // If we want to preserve graph integrity for downstream nodes:
+                // The downstream nodes depend on 'parentTask.id'.
+                // We should probably make the last subtask have 'parentTask.id' OR alias it.
+                // But IDs must be unique.
+                // Let's just update the IDs of the new tasks to be distinct, 
+                // AND we need to find who depended on 'parentTask.id' and update them to 'lastSubTask.id'.
+                // But 'recursiveDecomposition' returns a list, it doesn't see the whole graph easily to update others.
+                
+                // Workaround: 
+                // We return the subtasks. The caller (generateTaskGraph) gets a flat list.
+                // We haven't updated downstream dependencies.
+                // This is a limitation.
+                
+                // Better Strategy for IDs:
+                // Make the LAST subtask reuse the Parent's ID.
+                // Make previous subtasks have new IDs (parent_id_part_X).
+                
+                const lastIndex = subTasks.length - 1;
+                const parentId = parentTask.id;
+                
+                // Rename all except last
+                for (let i = 0; i < lastIndex; i++) {
+                    subTasks[i].id = `${parentId}_part_${i+1}`;
+                }
+                
+                // Last one takes the parent ID (so downstream waits for it)
+                subTasks[lastIndex].id = parentId;
+                
+                // Fix internal deps again with new IDs
+                for (let i = 1; i < subTasks.length; i++) {
+                    subTasks[i].dependencies = [subTasks[i-1].id];
+                }
+                
+                return subTasks;
+            }
+
+            return [];
+        } catch (error) {
+            console.warn('Decomposition failed:', error);
+            return [];
         }
     }
 
@@ -241,7 +403,7 @@ export class TaskPlannerAgent extends BaseAgent<TaskPlannerInput, TaskPlannerRes
 You are a Senior Software Architect.
 User Request: "${input.query}"
 Project Type: ${input.projectType}
-Existing Files: ${input.fileStructure.slice(0, 30).join(', ')}
+Existing Files: ${input.fileStructure.slice(0, 50).join(', ')}
 
 The user wants to perform a complex modification. 
 Break this down into a series of granular, atomic modification steps.
@@ -253,17 +415,24 @@ Format:
 [
   {
     "id": "task_1",
-    "description": "Specific task description (e.g. 'Add 'factorial' method to Calculator class')",
-    "type": "code",
+    "description": "Specific task description",
+    "type": "code" | "command" | "test",
     "dependencies": [],
-    "filePath": "Target file path if known"
+    "filePath": "Target file path if known",
+    "validationCommand": "shell command to verify success",
+    "parallelGroup": "optional_group_id",
+    "assignedAgent": "CodeGenerator" | "CodeModifier" | "Executor" | "WebSearch",
+    "complexity": "simple" | "medium" | "complex"
   }
 ]
 Rules:
 1. Break down large changes into smaller, testable steps.
 2. If multiple files need changes, create separate tasks for each.
 3. Include verification/test updates as the last step.
-4. Output ONLY JSON.
+4. Identify tasks that can run in parallel (e.g. creating independent files) and assign them the same 'parallelGroup' ID.
+5. Assign the most appropriate agent for each task.
+6. Provide a 'validationCommand' for each step if possible.
+7. Output ONLY JSON.
 `;
 
         try {
@@ -308,28 +477,51 @@ Rules:
     }
 
     private constructDynamicPlanningPrompt(input: TaskPlannerInput): string {
-        return `You are a Senior Technical Project Manager.
+        return `You are a Senior Technical Project Manager and Systems Architect.
 User Request: "${input.query}"
 Project Type: ${input.projectType}
-Existing Files: ${input.fileStructure.slice(0, 20).join(', ')}
+Existing Files: ${input.fileStructure.slice(0, 100).join(', ')}
 
-Break this request down into a logical series of dependent tasks.
-Output a JSON array of task objects.
-Format:
+Your goal is to break this request down into a precise, executable plan for an AI Agent team.
+
+### Rules for Task Generation:
+1. **Granularity**: Break complex tasks into small, atomic, verifiable steps.
+   - Bad: "Create authentication system"
+   - Good: "Create User model", "Implement JWT utility", "Create login route", "Create register route"
+2. **Dependencies**: Ensure logical order.
+   - Files must be created before they are imported.
+   - Interfaces/Types must be defined before usage.
+3. **Verification**: Each task MUST have a way to verify it was successful.
+   - Provide a \`validationCommand\` (e.g., \`ls src/user.ts\`, \`npm test\`, \`node scripts/verify_user.js\`).
+4. **Safety**: For risky operations (deletions, huge refactors), add a "Backup" or "Dry Run" task first.
+5. **Context**: Use the provided file list to avoid creating duplicate files. Modify existing ones if appropriate.
+6. **Parallelism & Efficiency**: 
+   - Identify tasks that can run in parallel (e.g. creating independent files). Assign them the same 'parallelGroup' ID.
+   - Group related tasks to minimize context switching.
+7. **Agent Assignment**: Assign the most appropriate agent:
+   - 'CodeGenerator': Creating new files or writing substantial code.
+   - 'CodeModifier': Editing existing files (refactoring, bug fixes).
+   - 'Executor': Running commands (npm install, tests, shell scripts).
+   - 'WebSearch': Researching documentation or libraries.
+
+### Output Format:
+Return ONLY a JSON array of task objects matching this structure:
 [
   {
-    "id": "task_1",
-    "description": "Clear, actionable task description (e.g. 'Create src/utils.ts with helper functions')",
-    "type": "code" | "command",
-    "dependencies": [],
-    "command": "optional shell command if type is command"
+    "id": "task_unique_id",
+    "description": "Clear, actionable instruction",
+    "type": "code" | "command" | "test",
+    "filePath": "src/path/to/file.ts", // REQUIRED for code/test tasks
+    "dependencies": ["task_id_of_dependency"],
+    "validationCommand": "shell command to verify success",
+    "critical": boolean,
+    "parallelGroup": "optional_group_id", // Use same ID for parallel tasks
+    "assignedAgent": "CodeGenerator" | "CodeModifier" | "Executor" | "WebSearch",
+    "complexity": "simple" | "medium" | "complex"
   }
 ]
-Rules:
-1. Keep it efficient (3-6 tasks max for typical requests).
-2. Ensure dependencies are logical (create file before editing it).
-3. Use specific filenames where possible.
-4. Output ONLY JSON.
+
+Do not include markdown formatting or explanations. Just the JSON.
 `;
     }
 
@@ -343,17 +535,23 @@ Rules:
                 return tasks.map((t: any) => ({
                     id: t.id || `task_${this.taskIdCounter++}`,
                     description: t.description,
+                    filePath: t.filePath,
                     dependencies: t.dependencies || [],
                     status: 'pending',
                     type: t.type || 'code',
                     command: t.command,
-                    retryCount: 0
+                    validationCommand: t.validationCommand,
+                    retryCount: 0,
+                    parallelGroup: t.parallelGroup,
+                    assignedAgent: t.assignedAgent,
+                    complexity: t.complexity
                 }));
             }
+            return [];
         } catch (e) {
             console.error('Failed to parse planner JSON', e);
+            return [];
         }
-        return [];
     }
 
     /**

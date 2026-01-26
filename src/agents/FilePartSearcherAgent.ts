@@ -74,6 +74,8 @@ export class FilePartSearcherAgent extends BaseAgent<FilePartSearchInput, FilePa
         ]
     };
 
+    private readonly MAX_FILE_SIZE_FOR_FULL_CONTENT = 500 * 1024; // 500KB
+
     constructor() {
         super({ name: 'FilePartSearcher', timeout: 10000 });
     }
@@ -244,28 +246,74 @@ export class FilePartSearcherAgent extends BaseAgent<FilePartSearchInput, FilePa
         const matches: FilePartMatch[] = [];
         const patterns = this.ELEMENT_PATTERNS[elementType.toLowerCase()] || [];
 
-        const fullContent = lines.join('\n');
+        // Estimate file size
+        const totalSize = lines.reduce((sum, line) => sum + line.length + 1, 0);
 
-        for (const pattern of patterns) {
-            const regex = new RegExp(pattern.source, pattern.flags);
-            let match;
+        if (totalSize > this.MAX_FILE_SIZE_FOR_FULL_CONTENT) {
+            // Large file strategy: Line-by-line scan (much faster, less memory)
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                for (const pattern of patterns) {
+                    // Create a line-specific regex (remove global flag if present to test single line)
+                    // But we want to capture groups, so we use exec or test.
+                    // Most patterns work on single line start.
+                    // We need to be careful with flags.
+                    
+                    // Simple check: does line match pattern source?
+                    // We remove 'g' flag and 'm' flag might not be needed for single line.
+                    // But some patterns use ^ or $.
+                    
+                    // Let's just use the pattern as is but test against line.
+                    // If pattern is multiline specific, it might fail.
+                    // But ELEMENT_PATTERNS are mostly designed for start of definition.
+                    
+                    const regex = new RegExp(pattern.source, pattern.flags.replace('g', ''));
+                    const match = regex.exec(line);
+                    
+                    if (match) {
+                        const blockEnd = this.findBlockEnd(lines, i, filePath);
+                        const content = lines.slice(i, blockEnd + 1).join('\n');
+                        const name = match[1] || match[0].slice(0, 30);
 
-            while ((match = regex.exec(fullContent)) !== null) {
-                const lineNumber = this.getLineNumber(fullContent, match.index);
-                const blockEnd = this.findBlockEnd(lines, lineNumber);
-                const content = lines.slice(lineNumber, blockEnd + 1).join('\n');
+                        matches.push({
+                            file: filePath,
+                            startLine: i + 1,
+                            endLine: blockEnd + 1,
+                            element: elementType,
+                            content: content.slice(0, 500),
+                            confidence: 0.8,
+                            reason: `${elementType}: ${name}`
+                        });
+                        // Break pattern loop if matched? No, one line might match multiple (unlikely for these types)
+                        break; 
+                    }
+                }
+            }
+        } else {
+            // Standard strategy: Full content match (better for multiline patterns)
+            const fullContent = lines.join('\n');
 
-                const name = match[1] || match[0].slice(0, 30);
+            for (const pattern of patterns) {
+                const regex = new RegExp(pattern.source, pattern.flags);
+                let match;
 
-                matches.push({
-                    file: filePath,
-                    startLine: lineNumber + 1,
-                    endLine: blockEnd + 1,
-                    element: elementType,
-                    content: content.slice(0, 500),
-                    confidence: 0.8,
-                    reason: `${elementType}: ${name}`
-                });
+                while ((match = regex.exec(fullContent)) !== null) {
+                    const lineNumber = this.getLineNumber(fullContent, match.index);
+                    const blockEnd = this.findBlockEnd(lines, lineNumber);
+                    const content = lines.slice(lineNumber, blockEnd + 1).join('\n');
+
+                    const name = match[1] || match[0].slice(0, 30);
+
+                    matches.push({
+                        file: filePath,
+                        startLine: lineNumber + 1,
+                        endLine: blockEnd + 1,
+                        element: elementType,
+                        content: content.slice(0, 500),
+                        confidence: 0.8,
+                        reason: `${elementType}: ${name}`
+                    });
+                }
             }
         }
 

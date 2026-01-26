@@ -4,6 +4,7 @@
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { BaseAgent, AgentOutput } from '../core/AgentTypes';
 import { ContextPlan } from './ContextPlanner';
 
@@ -23,6 +24,7 @@ export interface AnalyzedContext {
     totalChunks: number;
     tokensEstimate: number;
     summary: string;
+    dependencies?: { [file: string]: string[] };
 }
 
 export interface ContextAnalyzerInput {
@@ -59,12 +61,16 @@ export class ContextAnalyzer extends BaseAgent<ContextAnalyzerInput, AnalyzedCon
                 selectedChunks.reduce((sum, c) => sum + c.content.length, 0) * this.TOKENS_PER_CHAR
             );
 
+            // Extract dependencies (NEW)
+            const dependencies = this.extractDependencies(input.rawContent);
+
             const result: AnalyzedContext = {
                 chunks: selectedChunks,
                 totalFiles: input.rawContent.size,
                 totalChunks: selectedChunks.length,
                 tokensEstimate,
-                summary: this.buildSummary(selectedChunks, input.plan)
+                summary: this.buildSummary(selectedChunks, input.plan),
+                dependencies
             };
 
             return this.createOutput('success', result, 0.9, startTime, {
@@ -73,6 +79,53 @@ export class ContextAnalyzer extends BaseAgent<ContextAnalyzerInput, AnalyzedCon
         } catch (error) {
             return this.handleError(error as Error, startTime);
         }
+    }
+
+    /**
+     * Extract dependencies between files using regex and basic path resolution
+     */
+    private extractDependencies(files: Map<string, string>): { [file: string]: string[] } {
+        const dependencies: { [file: string]: string[] } = {};
+        
+        for (const [filePath, content] of files) {
+            const deps: string[] = [];
+            const fileDir = path.dirname(filePath);
+
+            const resolveImport = (importPath: string): string => {
+                if (importPath.startsWith('.')) {
+                    // Resolve relative path to absolute
+                    // We try to match with extensions if possible, but for now just resolving the base path
+                    // to facilitate graph building is enough.
+                    // The graph builder can do fuzzy matching on the end.
+                    return path.resolve(fileDir, importPath);
+                }
+                return importPath; // External package
+            };
+            
+            // TypeScript/JS imports
+            const importMatches = content.matchAll(/import\s+.*\s+from\s+['"]([^'"]+)['"]/g);
+            for (const match of importMatches) {
+                deps.push(resolveImport(match[1]));
+            }
+
+            // CommonJS requires
+            const requireMatches = content.matchAll(/require\(['"]([^'"]+)['"]\)/g);
+            for (const match of requireMatches) {
+                deps.push(resolveImport(match[1]));
+            }
+            
+            // Python imports (simple extraction, no resolution for now as it's complex)
+            const pyImportMatches = content.matchAll(/^(?:from|import)\s+([\w\.]+)/gm);
+            for (const match of pyImportMatches) {
+                deps.push(match[1]);
+            }
+
+            if (deps.length > 0) {
+                dependencies[filePath] = [...new Set(deps)];
+            }
+        }
+        
+        return dependencies;
     }
 
     /**
