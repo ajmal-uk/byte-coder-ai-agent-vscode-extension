@@ -248,7 +248,7 @@ export class ContextManager {
      * Score relevance of a section to query terms
      */
     private scoreRelevance(name: string, content: string, queryTerms: string[]): number {
-        if (queryTerms.length === 0) return 1; // No query, all sections equal
+        if (queryTerms.length === 0) {return 1;} // No query, all sections equal
 
         let score = 0;
         const lowerName = name.toLowerCase();
@@ -258,15 +258,15 @@ export class ContextManager {
             const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
             // Name match is worth more
-            if (lowerName === term) score += 20;
-            else if (lowerName.includes(term)) score += 10;
+            if (lowerName === term) {score += 20;}
+            else if (lowerName.includes(term)) {score += 10;}
 
             // Content match
             try {
                 const contentMatches = (lowerContent.match(new RegExp(escapedTerm, 'g')) || []).length;
                 score += Math.min(contentMatches, 10); // Cap at 10 matches
             } catch (e) {
-                if (lowerContent.includes(term)) score += 1;
+                if (lowerContent.includes(term)) {score += 1;}
             }
         }
 
@@ -323,7 +323,7 @@ export class ContextManager {
      * Get conversation context summary
      */
     public getConversationSummary(): string {
-        if (this.conversationContext.length === 0) return '';
+        if (this.conversationContext.length === 0) {return '';}
         return '### Previous Context\n' + this.conversationContext.slice(-20).join('\n');
     }
 

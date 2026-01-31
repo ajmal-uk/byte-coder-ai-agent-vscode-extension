@@ -77,7 +77,7 @@ export class RealTimeVersionTracker {
 
     private watchFileChanges(): void {
         const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        if (!workspaceRoot) return;
+        if (!workspaceRoot) {return;}
 
         // Watch all files in workspace
         const watcher = vscode.workspace.createFileSystemWatcher('**/*');
@@ -98,7 +98,7 @@ export class RealTimeVersionTracker {
     }
 
     private async handleFileChange(filePath: string, changeType: 'created' | 'modified' | 'deleted'): Promise<void> {
-        if (!this.isTrackedFile(filePath)) return;
+        if (!this.isTrackedFile(filePath)) {return;}
 
         try {
             let content = '';
@@ -200,9 +200,9 @@ export class RealTimeVersionTracker {
 
     private generateChangeMessage(changeType: string, changes: VersionChange[]): string {
         const summary = changes.map(c => {
-            if (c.type === 'added') return 'added lines';
-            if (c.type === 'removed') return 'removed lines';
-            if (c.type === 'modified') return 'modified lines';
+            if (c.type === 'added') {return 'added lines';}
+            if (c.type === 'removed') {return 'removed lines';}
+            if (c.type === 'modified') {return 'modified lines';}
             return 'changed';
         }).join(', ');
         
@@ -361,7 +361,7 @@ export class RealTimeVersionTracker {
         let totalVersions = 0;
 
         for (const [filePath, versions] of this.state.versions) {
-            if (versions.length === 0) continue;
+            if (versions.length === 0) {continue;}
             
             html += `
                 <div class="file-section">

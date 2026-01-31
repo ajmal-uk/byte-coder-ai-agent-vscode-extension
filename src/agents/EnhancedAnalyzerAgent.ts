@@ -226,17 +226,17 @@ Return JSON format:
         const files = context.files;
 
         // Common design patterns detection
-        if (files.some(f => f.includes('factory') || f.includes('Factory'))) patterns.push('Factory Pattern');
-        if (files.some(f => f.includes('observer') || f.includes('EventEmitter') || f.includes('pubsub'))) patterns.push('Observer Pattern');
-        if (files.some(f => f.includes('singleton') || f.includes('Singleton'))) patterns.push('Singleton Pattern');
-        if (files.some(f => f.includes('decorator') || f.includes('hoc') || f.includes('wrapper'))) patterns.push('Decorator Pattern');
-        if (files.some(f => f.includes('strategy') || f.includes('Strategy'))) patterns.push('Strategy Pattern');
-        if (files.some(f => f.includes('adapter') || f.includes('Adapter'))) patterns.push('Adapter Pattern');
+        if (files.some(f => f.includes('factory') || f.includes('Factory'))) {patterns.push('Factory Pattern');}
+        if (files.some(f => f.includes('observer') || f.includes('EventEmitter') || f.includes('pubsub'))) {patterns.push('Observer Pattern');}
+        if (files.some(f => f.includes('singleton') || f.includes('Singleton'))) {patterns.push('Singleton Pattern');}
+        if (files.some(f => f.includes('decorator') || f.includes('hoc') || f.includes('wrapper'))) {patterns.push('Decorator Pattern');}
+        if (files.some(f => f.includes('strategy') || f.includes('Strategy'))) {patterns.push('Strategy Pattern');}
+        if (files.some(f => f.includes('adapter') || f.includes('Adapter'))) {patterns.push('Adapter Pattern');}
         
         // Architectural patterns
-        if (files.some(f => f.includes('middleware') || f.includes('interceptor'))) patterns.push('Middleware Pattern');
-        if (files.some(f => f.includes('repository') || f.includes('Repository'))) patterns.push('Repository Pattern');
-        if (files.some(f => f.includes('dto') || f.includes('DataTransfer') || f.includes('vo'))) patterns.push('DTO/VO Pattern');
+        if (files.some(f => f.includes('middleware') || f.includes('interceptor'))) {patterns.push('Middleware Pattern');}
+        if (files.some(f => f.includes('repository') || f.includes('Repository'))) {patterns.push('Repository Pattern');}
+        if (files.some(f => f.includes('dto') || f.includes('DataTransfer') || f.includes('vo'))) {patterns.push('DTO/VO Pattern');}
 
         return patterns;
     }
@@ -246,18 +246,18 @@ Return JSON format:
         const dependencies: string[] = [];
         const files = context.files;
 
-        if (files.some(f => f.includes('package.json'))) dependencies.push('Node.js/npm');
-        if (files.some(f => f.includes('requirements.txt') || f.includes('pyproject.toml'))) dependencies.push('Python/Pip');
-        if (files.some(f => f.includes('Cargo.toml'))) dependencies.push('Rust/Cargo');
-        if (files.some(f => f.includes('go.mod'))) dependencies.push('Go/Modules');
+        if (files.some(f => f.includes('package.json'))) {dependencies.push('Node.js/npm');}
+        if (files.some(f => f.includes('requirements.txt') || f.includes('pyproject.toml'))) {dependencies.push('Python/Pip');}
+        if (files.some(f => f.includes('Cargo.toml'))) {dependencies.push('Rust/Cargo');}
+        if (files.some(f => f.includes('go.mod'))) {dependencies.push('Go/Modules');}
         
-        if (files.some(f => f.endsWith('react') || f.includes('React'))) dependencies.push('React');
-        if (files.some(f => f.includes('vue') || f.includes('Vue'))) dependencies.push('Vue.js');
-        if (files.some(f => f.includes('angular') || f.includes('Angular'))) dependencies.push('Angular');
+        if (files.some(f => f.endsWith('react') || f.includes('React'))) {dependencies.push('React');}
+        if (files.some(f => f.includes('vue') || f.includes('Vue'))) {dependencies.push('Vue.js');}
+        if (files.some(f => f.includes('angular') || f.includes('Angular'))) {dependencies.push('Angular');}
         
-        if (files.some(f => f.includes('express'))) dependencies.push('Express.js');
-        if (files.some(f => f.includes('fastapi'))) dependencies.push('FastAPI');
-        if (files.some(f => f.includes('django'))) dependencies.push('Django');
+        if (files.some(f => f.includes('express'))) {dependencies.push('Express.js');}
+        if (files.some(f => f.includes('fastapi'))) {dependencies.push('FastAPI');}
+        if (files.some(f => f.includes('django'))) {dependencies.push('Django');}
 
         return dependencies;
     }
@@ -398,8 +398,8 @@ Return JSON format:
         const camelCaseMatches = query.match(/\b[A-Z][a-zA-Z0-9]*\b/g);
         const snakeCaseMatches = query.match(/\b[a-z][a-z0-9_]*[a-z]\b/g);
         
-        if (camelCaseMatches) symbols.push(...camelCaseMatches);
-        if (snakeCaseMatches) symbols.push(...snakeCaseMatches);
+        if (camelCaseMatches) {symbols.push(...camelCaseMatches);}
+        if (snakeCaseMatches) {symbols.push(...snakeCaseMatches);}
         
         return symbols;
     }

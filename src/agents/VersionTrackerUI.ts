@@ -58,7 +58,7 @@ export class VersionTrackerUI {
     }
 
     private updateSidePanelContent(): void {
-        if (!this.sidePanel) return;
+        if (!this.sidePanel) {return;}
 
         this.sidePanel.webview.html = this.getSidePanelHtml(this.sidePanel.webview);
     }
@@ -279,7 +279,7 @@ export class VersionTrackerUI {
     }
 
     private async updatePanelData(): Promise<void> {
-        if (!this.sidePanel) return;
+        if (!this.sidePanel) {return;}
 
         // Get version data from tracker
         // This would need to be implemented in the tracker class
@@ -307,7 +307,7 @@ export class VersionTrackerUI {
 
     public async showInlineVersion(): Promise<void> {
         const editor = vscode.window.activeTextEditor;
-        if (!editor) return;
+        if (!editor) {return;}
 
         const filePath = vscode.workspace.asRelativePath(editor.document.uri);
         const version = this.inlineVersionProvider.getCurrentVersion(filePath);
@@ -321,7 +321,7 @@ export class VersionTrackerUI {
 
     public async quickRevert(): Promise<void> {
         const editor = vscode.window.activeTextEditor;
-        if (!editor) return;
+        if (!editor) {return;}
 
         const filePath = vscode.workspace.asRelativePath(editor.document.uri);
         const versions = this.inlineVersionProvider.getVersions(filePath);
@@ -349,7 +349,7 @@ export class VersionTrackerUI {
 
     public async quickCompare(): Promise<void> {
         const editor = vscode.window.activeTextEditor;
-        if (!editor) return;
+        if (!editor) {return;}
 
         const filePath = vscode.workspace.asRelativePath(editor.document.uri);
         const versions = this.inlineVersionProvider.getVersions(filePath);
@@ -370,14 +370,14 @@ export class VersionTrackerUI {
             placeHolder: 'Select first version to compare...'
         });
 
-        if (!versionA) return;
+        if (!versionA) {return;}
 
         const versionB = await vscode.window.showQuickPick(
             versionItems.filter(v => v.version !== versionA.version),
             { placeHolder: 'Select second version to compare...' }
         );
 
-        if (!versionB) return;
+        if (!versionB) {return;}
 
         await vscode.commands.executeCommand('versionTracker.compareVersions', filePath, versionA.version, versionB.version);
     }
@@ -418,7 +418,7 @@ class InlineVersionProvider implements vscode.FileDecorationProvider {
         const filePath = vscode.workspace.asRelativePath(uri);
         const version = this.getCurrentVersion(filePath);
         
-        if (!version) return undefined;
+        if (!version) {return undefined;}
 
         return {
             color: new vscode.ThemeColor('statusBarItem.warningBackground'),
@@ -442,7 +442,7 @@ class InlineVersionProvider implements vscode.FileDecorationProvider {
 
     showInlineVersion(): void {
         const editor = vscode.window.activeTextEditor;
-        if (!editor) return;
+        if (!editor) {return;}
 
         const filePath = vscode.workspace.asRelativePath(editor.document.uri);
         const version = this.getCurrentVersion(filePath);

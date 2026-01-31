@@ -159,7 +159,7 @@ Output JSON ONLY:
 `;
         const response = await this.client.generateResponse(prompt);
         const jsonMatch = response.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) return heuristic;
+        if (!jsonMatch) {return heuristic;}
 
         const parsed = JSON.parse(jsonMatch[0]);
         

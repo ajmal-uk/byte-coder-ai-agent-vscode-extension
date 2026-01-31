@@ -222,15 +222,15 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
 
         // Check for complexity indicators
         for (const indicator of this.COMPLEXITY_INDICATORS.complex) {
-            if (query.includes(indicator)) return 'complex';
+            if (query.includes(indicator)) {return 'complex';}
         }
 
         for (const indicator of this.COMPLEXITY_INDICATORS.medium) {
-            if (query.includes(indicator)) return 'medium';
+            if (query.includes(indicator)) {return 'medium';}
         }
 
         for (const indicator of this.COMPLEXITY_INDICATORS.simple) {
-            if (query.includes(indicator)) return 'simple';
+            if (query.includes(indicator)) {return 'simple';}
         }
 
         // Context-based complexity
@@ -258,14 +258,14 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
         }
 
         // Boost confidence if we have context
-        if (input.activeFilePath) confidence += 0.1;
-        if (input.hasSelection) confidence += 0.1;
+        if (input.activeFilePath) {confidence += 0.1;}
+        if (input.hasSelection) {confidence += 0.1;}
 
         // Reduce confidence if query is vague
-        if (input.query.split(' ').length < 3) confidence -= 0.1;
+        if (input.query.split(' ').length < 3) {confidence -= 0.1;}
 
         // Reduce confidence if no project context
-        if (!vscode.workspace.workspaceFolders?.length) confidence -= 0.2;
+        if (!vscode.workspace.workspaceFolders?.length) {confidence -= 0.2;}
 
         return Math.max(0.1, Math.min(0.99, confidence));
     }
@@ -551,7 +551,7 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
         const executionKeywords = ['run', 'execute', 'start', 'launch', 'test', 'benchmark', 'stress', 'load', 'debug'];
         
         // Always execute for Build/Modify/Fix/Command
-        if (intent === 'Build' || intent === 'Modify' || intent === 'Fix' || intent === 'Command') return true;
+        if (intent === 'Build' || intent === 'Modify' || intent === 'Fix' || intent === 'Command') {return true;}
         
         // For Audit/Explain, check for explicit execution request
         return executionKeywords.some(kw => lowerQuery.includes(kw));
@@ -571,10 +571,10 @@ export class ManagerAgent extends BaseAgent<ManagerInput, ManagerDecision> {
 
         // Select persona for reasoning
         let personaType: any = 'Generalist';
-        if (intent === 'Build' || intent === 'Design') personaType = 'SystemArchitect';
-        else if (intent === 'Fix' || intent === 'Audit') personaType = 'QAEngineer';
-        else if (intent === 'Command') personaType = 'DevOpsEngineer';
-        else if (intent === 'Modify') personaType = 'FrontendSpecialist'; // Defaulting for now
+        if (intent === 'Build' || intent === 'Design') {personaType = 'SystemArchitect';}
+        else if (intent === 'Fix' || intent === 'Audit') {personaType = 'QAEngineer';}
+        else if (intent === 'Command') {personaType = 'DevOpsEngineer';}
+        else if (intent === 'Modify') {personaType = 'FrontendSpecialist';} // Defaulting for now
 
         const persona = this.personaManager.getPersona(personaType);
 

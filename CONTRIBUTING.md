@@ -2,27 +2,26 @@
 
 First off, huge thanks for investing your time in contributing to Byte Coder! 🙌
 
-We are building an **agentic AI coding assistant** with a sophisticated multi-agent architecture. Your contributions help push the boundaries of what's possible in AI-assisted development.
+We are building an **autonomous AI software engineer** with a sophisticated "Think-Act-Verify" architecture. Your contributions help push the boundaries of what's possible in AI-assisted development.
 
 ---
 
 ## 🧠 Understanding the Architecture
 
-Byte Coder uses a **multi-agent system** for intelligent code context extraction:
+Byte Coder uses a **Multi-Agent Pipeline** to plan, execute, and verify tasks:
 
 ```
 src/
 ├── agents/                     # 🤖 Sub-Agent System
-│   ├── IntentAnalyzer.ts      # Query understanding & semantic expansion
-│   ├── FileFinderAgent.ts     # Intelligent file discovery
-│   ├── CodeExtractorAgent.ts  # AST-aware code extraction
-│   ├── RelevanceScorerAgent.ts # Multi-factor scoring
-│   └── index.ts               # Barrel export
-├── SearchAgent.ts             # 🎯 Orchestrates sub-agents
-├── ChatViewProvider.ts        # 💬 Chat UI controller
-├── ChatViewHtml.ts            # 🎨 Premium UI components
-├── ContextManager.ts          # 📦 Context management
-├── byteAIClient.ts            # 🌐 AI backend client
+│   ├── IntentAnalyzer.ts      # Query understanding
+│   ├── TaskPlannerAgent.ts    # 📋 Generates dependency graphs
+│   ├── CodeModifierAgent.ts   # ✂️ Surgical code edits
+│   ├── ExecutorAgent.ts       # 💻 Shell command execution
+│   └── ...
+├── core/
+│   ├── AgentOrchestrator.ts   # 🎼 "Conductor" of the pipeline
+│   ├── ManagerAgent.ts        # 🧠 "Project Manager"
+│   └── PipelineEngine.ts      # 🚂 Execution state machine
 └── extension.ts               # 🚀 VS Code entry point
 ```
 
@@ -62,6 +61,7 @@ git checkout -b fix/annoying-bug
 ```bash
 npm run compile     # TypeScript compilation
 npm run watch       # Watch mode for development
+npm run lint        # Check for code style issues
 ```
 
 ### 6. Commit Guidelines
@@ -69,9 +69,9 @@ npm run watch       # Watch mode for development
 Use [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```bash
-git commit -m "feat(agents): add import graph analysis to CodeExtractor"
-git commit -m "fix(ui): resolve code block copy button not working"
-git commit -m "docs: update README with new features"
+git commit -m "feat(planner): improve dependency resolution for cyclic graphs"
+git commit -m "fix(orchestrator): handle recovery for failed shell commands"
+git commit -m "docs: update architecture diagrams"
 ```
 
 ### 7. Submit a Pull Request
@@ -79,6 +79,7 @@ git commit -m "docs: update README with new features"
 - Describe your changes clearly
 - Link to related issues
 - Include screenshots/GIFs for UI changes
+- Ensure all tests pass
 
 ---
 
@@ -86,18 +87,19 @@ git commit -m "docs: update README with new features"
 
 | Area | Guideline |
 |------|-----------|
-| **TypeScript** | Strict mode. Avoid `any`. Use proper interfaces. |
-| **Async** | Prefer `async/await` over raw promises |
-| **Agents** | New agents should implement a consistent interface |
-| **UI** | Use VS Code theme variables for colors |
-| **Comments** | Document complex logic, not obvious code |
+| **TypeScript** | Strict mode. Avoid `any`. Use proper interfaces (see `AgentTypes.ts`). |
+| **Agents** | Must implement the standard `BaseAgent` interface. |
+| **Pipeline** | All file operations must use `<byte_action>` XML tags. |
+| **UI** | Use VS Code theme variables for colors. |
+| **Comments** | Document complex logic, especially in the Orchestrator. |
 
 ---
 
 ## 🔧 Key Areas for Contribution
 
-- **New Sub-Agents** — Add agents for specific tasks (e.g., GitAgent, TestAgent)
-- **Language Support** — Extend AST patterns in `CodeExtractorAgent.ts`
+- **New Agents** — Add specialized agents (e.g., `SecurityAuditAgent`, `RefactoringAgent`).
+- **Language Support** — Extend AST patterns in `CodeExtractorAgent.ts` for more languages.
+- **Recovery Strategies** — Improve how the system handles errors during execution.
 - **UI Improvements** — Enhance the chat experience in `ChatViewHtml.ts`
 - **Performance** — Optimize search and caching strategies
 - **Documentation** — Improve README, add tutorials

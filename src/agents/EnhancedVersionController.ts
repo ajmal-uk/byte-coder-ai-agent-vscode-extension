@@ -767,7 +767,7 @@ export class EnhancedVersionController extends BaseAgent<VersionControlInput, Ve
 
     private detectGitRepository(): void {
         const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        if (!workspaceRoot) return;
+        if (!workspaceRoot) {return;}
 
         const gitDir = path.join(workspaceRoot, '.git');
         if (fs.existsSync(gitDir)) {
@@ -910,7 +910,7 @@ export class EnhancedVersionController extends BaseAgent<VersionControlInput, Ve
 
         for (const filePath of filesToRestore) {
             const content = filesMap.get(filePath);
-            if (content === undefined) continue;
+            if (content === undefined) {continue;}
 
             try {
                 const uri = vscode.Uri.file(filePath);
@@ -922,7 +922,7 @@ export class EnhancedVersionController extends BaseAgent<VersionControlInput, Ve
                     await document.save();
                 } catch {
                     const dirPath = path.dirname(filePath);
-                    if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
+                    if (!fs.existsSync(dirPath)) {fs.mkdirSync(dirPath, { recursive: true });}
                     fs.writeFileSync(filePath, content);
                 }
                 restoredFiles.push(filePath);
@@ -949,7 +949,7 @@ export class EnhancedVersionController extends BaseAgent<VersionControlInput, Ve
         
         if (this.checkpointDir) {
             const checkpointPath = path.join(this.checkpointDir, `${checkpointId}.json`);
-            try { if (fs.existsSync(checkpointPath)) fs.unlinkSync(checkpointPath); } catch { }
+            try { if (fs.existsSync(checkpointPath)) {fs.unlinkSync(checkpointPath);} } catch { }
             this.saveIndex(Array.from(this.checkpoints.values()));
         }
 
@@ -960,50 +960,50 @@ export class EnhancedVersionController extends BaseAgent<VersionControlInput, Ve
         const toDelete = Array.from(this.checkpoints.values()).filter(cp => cp.sessionId === sessionId);
         let deletedCount = 0;
         for (const cp of toDelete) {
-            if (this.deleteCheckpoint(cp.checkpointId).success) deletedCount++;
+            if (this.deleteCheckpoint(cp.checkpointId).success) {deletedCount++;}
         }
         return { success: true, message: `Deleted ${deletedCount} checkpoints for session ${sessionId}` };
     }
 
     private async getFileContent(checkpointId: string, filePath: string): Promise<VersionControlResult> {
         const { id: targetId, error } = this.resolveCheckpointId(checkpointId);
-        if (error || !targetId) return { success: false, message: error || 'Checkpoint resolution failed' };
+        if (error || !targetId) {return { success: false, message: error || 'Checkpoint resolution failed' };}
 
-        if (!this.fileSnapshots.has(targetId)) await this.loadCheckpoint(targetId);
+        if (!this.fileSnapshots.has(targetId)) {await this.loadCheckpoint(targetId);}
         const snapshots = this.fileSnapshots.get(targetId);
-        if (!snapshots) return { success: false, message: `Checkpoint ${targetId} data not found` };
+        if (!snapshots) {return { success: false, message: `Checkpoint ${targetId} data not found` };}
 
         const content = snapshots.get(filePath);
-        if (content === undefined) return { success: false, message: `File ${filePath} not found in checkpoint ${targetId}` };
+        if (content === undefined) {return { success: false, message: `File ${filePath} not found in checkpoint ${targetId}` };}
 
         return { success: true, content, message: `Retrieved content for ${filePath} from ${targetId}` };
     }
 
     private async getDiff(checkpointId: string, filePath?: string): Promise<VersionControlResult> {
         const { id: targetId, error } = this.resolveCheckpointId(checkpointId);
-        if (error || !targetId) return { success: false, message: error || 'Checkpoint resolution failed' };
+        if (error || !targetId) {return { success: false, message: error || 'Checkpoint resolution failed' };}
 
-        if (!this.fileSnapshots.has(targetId)) await this.loadCheckpoint(targetId);
+        if (!this.fileSnapshots.has(targetId)) {await this.loadCheckpoint(targetId);}
         const snapshots = this.fileSnapshots.get(targetId);
-        if (!snapshots) return { success: false, message: `Checkpoint ${targetId} data not found` };
+        if (!snapshots) {return { success: false, message: `Checkpoint ${targetId} data not found` };}
 
         let diffOutput = '';
         const filesToDiff = filePath ? [filePath] : Array.from(snapshots.keys());
 
         for (const file of filesToDiff) {
             const oldContent = snapshots.get(file);
-            if (oldContent === undefined) continue;
+            if (oldContent === undefined) {continue;}
 
             try {
                 let newContent = '';
-                if (fs.existsSync(file)) newContent = fs.readFileSync(file, 'utf8');
+                if (fs.existsSync(file)) {newContent = fs.readFileSync(file, 'utf8');}
                 if (oldContent !== newContent) {
                     diffOutput += `--- ${file} (Checkpoint ${targetId})\n+++ ${file} (Current)\n${this.generateSimpleDiff(oldContent, newContent)}\n\n`;
                 }
             } catch (e) { diffOutput += `Error reading ${file}: ${e}\n`; }
         }
 
-        if (!diffOutput) diffOutput = 'No changes detected.';
+        if (!diffOutput) {diffOutput = 'No changes detected.';}
         return { success: true, diff: diffOutput, message: `Generated diff for checkpoint ${targetId}` };
     }
 
@@ -1022,7 +1022,7 @@ export class EnhancedVersionController extends BaseAgent<VersionControlInput, Ve
 
     private resolveCheckpointId(checkpointId?: string): { id?: string; error?: string } {
         const allCheckpoints = Array.from(this.checkpoints.values());
-        if (allCheckpoints.length === 0) return { error: 'No checkpoints found' };
+        if (allCheckpoints.length === 0) {return { error: 'No checkpoints found' };}
         
         allCheckpoints.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
         const targetId = checkpointId;
@@ -1031,10 +1031,10 @@ export class EnhancedVersionController extends BaseAgent<VersionControlInput, Ve
             return { id: allCheckpoints[0].checkpointId };
         }
         if (targetId === 'previous' || targetId === 'last') {
-            if (allCheckpoints.length < 2) return { error: 'No previous checkpoint available' };
+            if (allCheckpoints.length < 2) {return { error: 'No previous checkpoint available' };}
             return { id: allCheckpoints[1].checkpointId };
         }
-        if (this.checkpoints.has(targetId)) return { id: targetId };
+        if (this.checkpoints.has(targetId)) {return { id: targetId };}
         return { error: `Checkpoint ${targetId} not found` };
     }
 
@@ -1066,7 +1066,7 @@ export class EnhancedVersionController extends BaseAgent<VersionControlInput, Ve
     }
 
     private saveIndex(checkpoints: Checkpoint[]): void {
-        if (!this.checkpointDir) return;
+        if (!this.checkpointDir) {return;}
         try {
             const indexPath = path.join(this.checkpointDir, 'index.json');
             fs.writeFileSync(indexPath, JSON.stringify(checkpoints, null, 2));
@@ -1074,7 +1074,7 @@ export class EnhancedVersionController extends BaseAgent<VersionControlInput, Ve
     }
 
     private async persistCheckpoint(id: string, checkpoint: Checkpoint, snapshots: Map<string, string>): Promise<void> {
-        if (!this.checkpointDir) return;
+        if (!this.checkpointDir) {return;}
         try {
             const snapshotsObj = Object.fromEntries(snapshots);
             const data = { checkpoint, compressedSnapshots: Buffer.from(require('zlib').gzipSync(JSON.stringify(snapshotsObj)).toString('base64'), 'base64'), version: 2 };
@@ -1085,13 +1085,13 @@ export class EnhancedVersionController extends BaseAgent<VersionControlInput, Ve
     }
 
     private async loadAllCheckpoints(): Promise<void> {
-        if (!this.checkpointDir || !fs.existsSync(this.checkpointDir)) return;
+        if (!this.checkpointDir || !fs.existsSync(this.checkpointDir)) {return;}
         
         const indexPath = path.join(this.checkpointDir, 'index.json');
         if (fs.existsSync(indexPath)) {
             try {
                 const indexData = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
-                for (const cp of indexData) this.checkpoints.set(cp.checkpointId, cp);
+                for (const cp of indexData) {this.checkpoints.set(cp.checkpointId, cp);}
                 return;
             } catch (e) { console.warn('Failed to load checkpoint index:', e); }
         }
@@ -1102,17 +1102,17 @@ export class EnhancedVersionController extends BaseAgent<VersionControlInput, Ve
                 try {
                     const filePath = path.join(this.checkpointDir, file);
                     const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-                    if (data.checkpoint?.checkpointId) this.checkpoints.set(data.checkpoint.checkpointId, data.checkpoint);
+                    if (data.checkpoint?.checkpointId) {this.checkpoints.set(data.checkpoint.checkpointId, data.checkpoint);}
                 } catch (e) { console.error(`Failed to load checkpoint ${file}:`, e); }
             }
         } catch (e) { console.error('Failed to read checkpoint directory:', e); }
     }
 
     private async loadCheckpoint(id: string): Promise<boolean> {
-        if (!this.checkpointDir) return false;
+        if (!this.checkpointDir) {return false;}
         try {
             const filePath = path.join(this.checkpointDir, `${id}.json`);
-            if (!fs.existsSync(filePath)) return false;
+            if (!fs.existsSync(filePath)) {return false;}
             
             const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
             this.checkpoints.set(id, data.checkpoint);
@@ -1123,7 +1123,7 @@ export class EnhancedVersionController extends BaseAgent<VersionControlInput, Ve
                 snapshotsMap = new Map(Object.entries(JSON.parse(require('zlib').gunzipSync(buffer).toString('utf8'))));
             } else if (data.snapshots) {
                 snapshotsMap = new Map(Object.entries(data.snapshots));
-            } else return false;
+            } else {return false;}
             
             this.fileSnapshots.set(id, snapshotsMap);
             return true;
@@ -1132,13 +1132,13 @@ export class EnhancedVersionController extends BaseAgent<VersionControlInput, Ve
 
     getLatestCheckpoint(): Checkpoint | undefined {
         const checkpoints = Array.from(this.checkpoints.values());
-        if (checkpoints.length === 0) return undefined;
+        if (checkpoints.length === 0) {return undefined;}
         return checkpoints.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
     }
 
     async cleanup(keepCount: number = 10): Promise<void> {
         const checkpoints = Array.from(this.checkpoints.entries())
             .sort((a, b) => new Date(b[1].timestamp).getTime() - new Date(a[1].timestamp).getTime());
-        for (const [id] of checkpoints.slice(keepCount)) this.deleteCheckpoint(id);
+        for (const [id] of checkpoints.slice(keepCount)) {this.deleteCheckpoint(id);}
     }
 }

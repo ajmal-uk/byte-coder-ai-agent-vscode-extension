@@ -434,7 +434,7 @@ Guidelines:
         const order: string[] = [];
 
         const visit = (taskId: string, task: TaskNode) => {
-            if (visited.has(taskId)) return;
+            if (visited.has(taskId)) {return;}
             
             for (const depId of task.dependencies) {
                 const depTask = tasks.find(t => t.id === depId);

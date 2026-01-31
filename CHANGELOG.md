@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.3] - 2026-01-31
+
+### 🔄 Autonomous Agent Architecture Update
+This release marks a major evolution for Byte Coder, enhancing its capabilities as a fully autonomous software engineering agent. The "Pipeline" architecture has been refined to strictly follow a "Think-Act-Verify" loop.
+
+### ✨ New Features
+- **Strict "Think-Act-Verify" Pipeline**: A formalized execution loop where every action is planned, executed, and then verified.
+- **SEO & Marketplace Optimization**: Optimized package metadata for better discoverability and SEO on VS Code Marketplace.
+- **Enhanced Documentation**: Updated README with detailed architectural diagrams and screenshots of the new interface.
+- **Improved Action Reliability**: The agent now generates strict `<byte_action>` XML tags, eliminating ambiguity in file operations.
+- **Visual Process Diagrams**: Added detailed ASCII diagrams in `AgentOrchestrator.ts` to explain the internal decision-making process.
+
+### 🐛 Bug Fixes
+- **Activation Events**: Fixed `activationEvents` warning in `package.json` by removing redundant entries.
+- **Confirmation Loop Fix**: Resolved an issue where the agent would repeatedly ask for confirmation instead of executing actions.
+- **TypeScript & Linting Fixes**: Corrected 276+ linting errors and resolved TypeScript compilation issues in `BetterChatUI.ts`.
+- **Regex Safety**: Fixed invalid regular expressions in `BetterChatUI.ts` that caused syntax errors.
+- **System Prompt Hardening**: Updated the core system prompt to enforce XML tag usage and prevent markdown confusion.
+
+### 🔧 Technical Improvements
+- **Agent Orchestrator Refactor**: Cleaned up the core orchestration logic to better handle complex multi-step tasks.
+- **Security Audit**: Addressed moderate severity vulnerabilities in dependencies.
+- **Codebase Standardization**: Enforced strict naming conventions and type safety across the codebase.
+
 ## [1.0.2] - 2026-01-25
 
 ### 🚀 Major Release: Autonomous Agent & Knowledge Integration

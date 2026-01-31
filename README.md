@@ -1,265 +1,140 @@
 <div align="center">
   <img src="images/logo.png" width="128" height="128" alt="Byte Coder AI Logo" />
-  <h1>Byte Coder AI Agent</h1>
-  <p><b>🚀 Agentic AI Coding Assistant with Intelligent Context Awareness</b></p>
-  <p><i>Powered by a Multi-Agent Architecture for Superior Code Understanding</i></p>
+  <h1>Byte Coder AI Agent - The Autonomous Software Engineer</h1>
+  <p><b>🚀 The Autonomous AI Software Engineer for VS Code | Better than Copilot</b></p>
+  <p><i>Plan. Execute. Verify. | Powered by Multi-Agent Architecture</i></p>
+  
+  [![Version](https://img.shields.io/visual-studio-marketplace/v/uthakkan.byte-coder-ai-agent?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=uthakkan.byte-coder-ai-agent)
+  [![Installs](https://img.shields.io/visual-studio-marketplace/i/uthakkan.byte-coder-ai-agent?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=uthakkan.byte-coder-ai-agent)
+  [![Rating](https://img.shields.io/visual-studio-marketplace/r/uthakkan.byte-coder-ai-agent?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=uthakkan.byte-coder-ai-agent)
 </div>
 
 ---
 
-> **Byte Coder** is not just another AI chat extension — it's an **intelligent coding agent** that deeply understands your entire codebase. Using a sophisticated **multi-agent system**, it analyzes your intent, discovers relevant files across your workspace, and extracts precisely the code context needed to give you accurate, project-aware answers.
+> **Byte Coder** is not just a chat extension — it is an **autonomous software engineering agent** capable of handling complex development tasks end-to-end. Powered by a sophisticated **Multi-Agent "Think-Act-Verify" Architecture**, it understands your codebase, plans multi-step solutions, executes file operations, and verifies its own work.
+
+> **Privacy Focused**: Your code stays private. Byte Coder runs locally or connects securely to trusted cloud providers.
+
+---
+
+## 📸 Experience Byte Coder
+
+<div align="center">
+  <img src="images/screenshots/chat.png" alt="Byte Coder Chat Interface" width="800" />
+  <p><i><b>Intelligent Chat Interface</b>: Context-aware conversations with your codebase</i></p>
+</div>
+
+<br/>
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <img src="images/screenshots/history.png" alt="Session History" width="400" />
+        <br/>
+        <b>Session History</b>
+      </td>
+      <td align="center">
+        <img src="images/screenshots/models.png" alt="Model Selection" width="400" />
+        <br/>
+        <b>Model Management</b>
+      </td>
+    </tr>
+  </table>
+</div>
 
 ---
 
 ## 🚀 Why Byte Coder?
 
-Most AI tools are blind to your project's structure. They guess. **Byte Coder knows.**
+Most AI tools are passive text generators. **Byte Coder is an active agent.**
 
-*   **🚫 Stop Copy-Pasting**: Byte Coder reads your files automatically.
-*   **🧠 Deep Understanding**: It builds a mental model of your project's architecture.
-*   **⚡ Autonomous Execution**: Give it a goal, and watch it plan, execute, and verify the solution.
-*   **🔒 Privacy First**: Your code is processed securely with state-of-the-art privacy standards.
-
----
-
-## 📦 Install
-
-**[👉 Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=uthakkan.byte-coder-ai-agent)**
-
-Or search for **"Byte Coder AI"** in VS Code Extensions.
+*   **🧠 "Think-Act-Verify" Loop**: It doesn't just guess code; it plans a solution, writes the files, and checks for errors.
+*   **📂 Deep Context Awareness**: Automatically discovers relevant files, reads imports, and understands project structure.
+*   **🛡️ Safe Execution**: All file operations are presented for your review before execution.
+*   **⚡ Parallel Execution**: Multiple specialized sub-agents work in parallel to solve tasks faster.
 
 ---
 
-## ✨ What Makes Byte Coder Different?
+## 🛠️ Core Capabilities
 
-Most AI coding tools just send your selected code to an API. **Byte Coder is an agent** — it thinks, searches, and reasons about your entire project before responding.
+### 1. Autonomous Task Execution (New in v1.0.3)
+Byte Coder can now handle complex requests like "Create a React component for UserProfile and add it to the router":
 
-### 🤖 Agentic Intelligence
-- **Multi-Agent System** — 4 specialized sub-agents working in concert
-- **Semantic Understanding** — knows "login" also means "auth", "session", "signin"
-- **AST-Aware Extraction** — finds functions & classes, not just text
-- **Parallel Processing** — blazing fast workspace searches
+*   **Manager Agent**: Analyzes your request and determines the intent.
+*   **Architect Agent**: Designs the system structure if needed.
+*   **Task Planner**: Breaks the goal into a dependency graph of executable tasks.
+*   **Execution Engine**: Writes code, runs commands, and modifies files.
 
-### 💎 Premium Experience
-- **Glassmorphism UI** — stunning translucent design
-- **Adaptive Theming** — beautiful in Light, Dark, and High Contrast
-- **Rich Markdown** — syntax highlighting with MacOS-style code blocks
-- **Session History** — searchable conversation archive
+### 2. Intelligent Codebase Search
+Stop manually copy-pasting files. Byte Coder finds what it needs:
+*   **Semantic Search**: Finds code by concept (e.g., "auth logic" finds `LoginController.ts`).
+*   **AST Extraction**: Reads full function definitions and class structures.
+*   **Smart Context**: Auto-includes relevant imports and types.
 
----
-
-## 🚀 Agentic Coding (New in v1.0.2)
-
-Byte Coder has evolved from a chat assistant to a **fully autonomous coding agent**. It can now **plan, execute, and refine** complex coding tasks.
-
-### 📋 Dynamic Implementation Plan
-- **Live Planning** — Breaks down complex requests into actionable steps (e.g., "Create API", "Update Database", "Add Tests").
-- **Real-time Progress** — Watch as the agent executes each step of the plan.
-- **Auto-Recovery** — If a step fails, the agent backtracks and adjusts the plan dynamically.
-- **Visual Status** — Dedicated "Plan" drawer in the UI to track task completion.
-
-### 🛠️ Autonomous Execution
-The new **Pipeline Engine** orchestrates specialized agents to get work done:
-- **ManagerAgent** — Decomposes high-level requests into tasks.
-- **TaskPlannerAgent** — Creates topological dependency graphs.
-- **CodeModifierAgent** — Performs surgical code edits with rollback capability.
-- **ExecutorAgent** — Runs commands and verifies fixes.
-
-### 🧠 Offline Knowledge & Identity
-Byte Coder now comes with an embedded **Knowledge Base** that allows it to answer questions about its creator, purpose, and capabilities without needing internet access for basic identity queries. It strictly adheres to its identity as a creation of **Ajmal U K** and **UTHAKKAN**.
+### 3. Premium Developer Experience
+*   **Glassmorphism UI**: Beautiful, translucent interface that fits right into modern VS Code.
+*   **Slash Commands**: Quick actions like `/fix`, `/refactor`, `/test`, `/explain`.
+*   **One-Click Actions**: Right-click any code to Explain, Refactor, or Find Bugs.
 
 ---
 
-## 🧠 Intelligent Agent System
+## 🏗️ Multi-Agent Architecture
 
-Byte Coder's brain consists of **specialized sub-agents** working together:
+Byte Coder operates as a system of specialized agents, each with a distinct role:
 
-<div align="center">
-
-```
-┌─────────────┐    ┌──────────────────┐    ┌──────────────────┐    ┌────────────────────┐    ┌─────────────────────┐    ┌─────────────┐
-│ Your Query  │ ─▶ │ 🔍 IntentAnalyzer │ ─▶ │ 📂 FileFinderAgent│ ─▶ │ ✂️ CodeExtractor   │ ─▶ │ ⚖️ RelevanceScorer  │ ─▶ │ 🤖 Response │
-└─────────────┘    └──────────────────┘    └──────────────────┘    └────────────────────┘    └─────────────────────┘    └─────────────┘
+```mermaid
+graph TD
+    User[User Request] --> Manager[Manager Agent]
+    Manager -->|Complex Task| Architect[Architect Agent]
+    Manager -->|Simple Task| Planner[Task Planner]
+    Architect --> Planner
+    Planner -->|Task Graph| Orchestrator[Execution Orchestrator]
+    
+    subgraph Execution Engine
+    Orchestrator --> CodeGen[Code Generator]
+    Orchestrator --> Executor[Command Executor]
+    Orchestrator --> QA[QA Agent]
+    end
+    
+    Execution Engine -->|Result| Verify[Verification]
+    Verify -->|Success| User
+    Verify -->|Fail| Planner
 ```
 
-</div>
+### The "Pipeline" Process
 
-| Agent | What It Does |
-|-------|--------------|
-| **🔍 IntentAnalyzer** | Understands your query with semantic expansion — "database" finds "sql", "prisma", "orm" |
-| **📂 FileFinderAgent** | Discovers relevant files using fuzzy matching and intelligent scoring |
-| **✂️ CodeExtractorAgent** | Uses AST-aware parsing to extract complete functions and classes |
-| **⚖️ RelevanceScorerAgent** | Ranks results with multi-factor scoring and smart context budgeting (25KB) |
-
-### 🎯 Smart Features
-
-- **Semantic Expansion** — Your keywords automatically expand to related terms
-- **Symbol Detection** — Recognizes `camelCase`, `PascalCase`, and `snake_case` patterns
-- **Query Type Detection** — Adjusts search strategy for fix/explain/refactor/test
-- **Import Awareness** — Always includes relevant imports for complete context
-
----
-
-## 🚀 Key Features
-
-### 💬 Natural Language Chat
-Talk to your codebase like you would to a senior developer.
-
-| Feature | Description |
-|---------|-------------|
-| **@ File Mentions** | Type `@` to reference any file directly in your query |
-| **/ Slash Commands** | Quick access to `/explain`, `/fix`, `/refactor`, `/test`, `/optimize`, `/security` |
-| **Live Streaming** | See AI responses as they're generated in real-time |
-| **Session Persistence** | Never lose your conversation history |
-
-### ⚡ One-Click Context Menu Actions
-Right-click any code selection:
-
-| Action | Shortcut | Description |
-|--------|----------|-------------|
-| 🕵️ **Explain** | `Cmd+Alt+E` | Plain-English breakdown of complex logic |
-| 🐛 **Find Bugs** | `Cmd+Alt+F` | Deep analysis of potential issues |
-| 🔨 **Refactor** | `Cmd+Alt+R` | Modernize and optimize code |
-| 🧪 **Generate Tests** | — | Auto-create unit tests (Jest, Mocha, PyTest) |
-| 📝 **Generate Docs** | — | Auto-generate JSDoc/docstrings |
-| 🔒 **Security Audit** | — | Find vulnerabilities and suggest fixes |
-| ⚡ **Optimize** | — | Performance improvements |
-
-### 🎨 Premium UI
-
-- **Glassmorphism Design** — Translucent panels with blur effects
-- **Fluid Animations** — Smooth transitions and micro-interactions
-- **MacOS-Style Code Blocks** — Window dots + copy/insert buttons
-- **PRO Badge** — Visual indicator of advanced capabilities
-
----
-
-## 💻 Quick Start
-
-1. **Install** from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=uthakkan.byte-coder-ai-agent)
-2. **Click** the Byte Coder icon in your sidebar
-3. **Start chatting!**
-
-### Example Queries
-
-```
-# Understand code
-What does the handleUserMessage function do?
-
-# Reference specific files
-@SearchAgent.ts explain the search pipeline
-
-# Use slash commands
-/fix the error in ChatViewProvider
-/refactor this to use async/await
-/test generate tests for FileFinderAgent
-/security check for vulnerabilities
-```
+1.  **Phase 0: Manager Analysis** - Determines if the request is a simple question or a complex build task.
+2.  **Phase 1: Planning** - The **Task Planner** creates a Directed Acyclic Graph (DAG) of necessary steps.
+3.  **Phase 2: Execution** - Agents run in parallel where possible to write code, install dependencies, and fix errors.
+4.  **Phase 3: Verification** - The agent validates the output against the original requirements.
 
 ---
 
 ## ⚙️ Configuration
 
-Access via `Settings > Extensions > Byte Coder AI`
+Customize Byte Coder in `Settings > Extensions > Byte Coder AI`:
+
+<img src="images/screenshots/settings.png" alt="Settings Interface" width="100%" />
 
 | Setting | Description | Default |
 |---------|-------------|---------|
-| `byteAI.customInstructions` | Custom persona/behavior instructions | `""` |
-| `byteAI.autoContext` | Auto-gather relevant context | `true` |
-| `byteAI.debugSearchAgent` | Show search debug info | `false` |
+| `byteAI.customInstructions` | Define your preferred coding style or persona | `""` |
+| `byteAI.autoContext` | Enable autonomous file discovery | `true` |
+| `byteAI.modelProvider` | Choose between Cloud or Local (Ollama) models | `cloud` |
 
 ---
 
-## 🏗️ Architecture
+## 📦 Installation
 
-```
-src/
-├── agents/                     # 🤖 Multi-Agent System
-│   ├── IntentAnalyzer.ts      # Query understanding & semantic expansion
-│   ├── FileFinderAgent.ts     # Intelligent file discovery
-│   ├── CodeExtractorAgent.ts  # AST-aware code extraction
-│   ├── RelevanceScorerAgent.ts # Multi-factor scoring
-│   └── index.ts               # Barrel export
-├── SearchAgent.ts             # 🎯 Agent Orchestrator
-├── ChatViewProvider.ts        # 💬 Chat UI Controller
-├── ChatViewHtml.ts            # 🎨 Premium UI Components
-├── ContextManager.ts          # 📦 Context Management
-├── byteAIClient.ts            # 🌐 AI Backend Client
-└── extension.ts               # 🚀 VS Code Entry Point
-```
-
----
-
-## 🔮 Roadmap
-
-- [ ] **Code Actions** — Apply AI suggestions directly to files
-- [ ] **Multi-file Editing** — Edit multiple files in one command
-- [ ] **Git Integration** — Understand changes and generate commit messages
-- [ ] **Custom Models** — Support for local/custom LLM backends
-- [ ] **Voice Input** — Talk to your code
-
----
-
-## ❤️ Support This Project
-
-If Byte Coder helps you code faster, consider supporting its development!
-
-<div align="center">
-  <a href="https://www.buymeacoffee.com/ajmal.uk">
-    <img src="https://img.shields.io/badge/☕_Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me A Coffee" />
-  </a>
-  &nbsp;&nbsp;
-  <a href="https://www.paypal.com/ncp/payment/AWQFP73AKV4SN">
-    <img src="https://img.shields.io/badge/💳_Donate_via_PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white" alt="PayPal Donate" />
-  </a>
-</div>
-
-<br />
-
-Your support helps me:
-- 🚀 Add new features faster
-- 🐛 Fix bugs and improve stability
-- 📚 Create better documentation
-- ☕ Stay caffeinated while coding!
-
----
-
-## 🏢 Built by UTHAKKAN
-
-**UTHAKKAN** is a technology studio building the next generation of developer tools.
-
-<div align="center">
-  <h3>👨‍💻 Ajmal U K</h3>
-  <p><i>Full Stack Developer & Founder</i></p>
-  <p>
-    <a href="https://github.com/ajmal-uk">
-      <img src="https://img.shields.io/badge/GitHub-100000?style=flat&logo=github&logoColor=white" alt="GitHub" />
-    </a>
-    &nbsp;
-    <a href="https://uthakkan.pythonanywhere.com">
-      <img src="https://img.shields.io/badge/Website-4285F4?style=flat&logo=google-chrome&logoColor=white" alt="Website" />
-    </a>
-    &nbsp;
-    <a href="mailto:contact.uthakkan@gmail.com">
-      <img src="https://img.shields.io/badge/Email-D14836?style=flat&logo=gmail&logoColor=white" alt="Email" />
-    </a>
-  </p>
-</div>
-
----
-
-## 📄 License
-
-MIT License — See [LICENSE](LICENSE) for details.
+1.  Open VS Code Extensions (`Cmd+Shift+X`).
+2.  Search for **"Byte Coder AI"**.
+3.  Click **Install**.
+4.  Open the Byte Coder sidebar icon to start.
 
 ---
 
 <div align="center">
-  <sub>© 2025 UTHAKKAN. Building the future of code.</sub>
-  <br /><br />
-  <b>⭐ Star this repo if Byte Coder helps you code faster!</b>
-  <br /><br />
-  <a href="https://www.buymeacoffee.com/ajmal.uk">
-    <img src="https://img.buymeacoffee.com/button-api/?text=Support Development&emoji=☕&slug=ajmal.uk&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" alt="Support Development" />
-  </a>
+  <p>Made with ❤️ by <b>Ajmal U K</b></p>
+  <p><i>The Future of Coding is Agentic.</i></p>
 </div>

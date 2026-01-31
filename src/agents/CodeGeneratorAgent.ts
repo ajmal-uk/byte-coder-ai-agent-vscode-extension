@@ -62,12 +62,12 @@ export class CodeGeneratorAgent extends BaseAgent<CodeGeneratorInput, CodeGenera
                 // Try to infer file path if missing for code tasks
                 if (!task.filePath && task.type === 'code') {
                     const match = task.description.match(/(?:create|edit|modify|update|in|for)\s+([a-zA-Z0-9_./-]+\.[a-z0-9]+)/i);
-                    if (match) task.filePath = match[1];
-                    else if (input.activeFilePath) task.filePath = input.activeFilePath;
+                    if (match) {task.filePath = match[1];}
+                    else if (input.activeFilePath) {task.filePath = input.activeFilePath;}
                 }
 
                 // Skip tasks that are clearly not for code generation (e.g., pure commands)
-                if (!task.filePath && task.type === 'command') continue;
+                if (!task.filePath && task.type === 'command') {continue;}
 
                 if (task.parallelGroup && task.parallelGroup === currentGroupId) {
                     currentGroup.push(task);
@@ -96,7 +96,7 @@ export class CodeGeneratorAgent extends BaseAgent<CodeGeneratorInput, CodeGenera
                 }));
 
                 for (const item of results) {
-                    if (!item) continue;
+                    if (!item) {continue;}
                     const { task, result } = item;
 
                     if (result.type === 'create') {
@@ -299,9 +299,9 @@ export class CodeGeneratorAgent extends BaseAgent<CodeGeneratorInput, CodeGenera
         
         if (codePlan.techStack) {
             prompt += `**Tech Stack:**\n`;
-            if (codePlan.techStack.frontend) prompt += `- Frontend: ${codePlan.techStack.frontend}\n`;
-            if (codePlan.techStack.backend) prompt += `- Backend: ${codePlan.techStack.backend}\n`;
-            if (codePlan.techStack.database) prompt += `- Database: ${codePlan.techStack.database}\n`;
+            if (codePlan.techStack.frontend) {prompt += `- Frontend: ${codePlan.techStack.frontend}\n`;}
+            if (codePlan.techStack.backend) {prompt += `- Backend: ${codePlan.techStack.backend}\n`;}
+            if (codePlan.techStack.database) {prompt += `- Database: ${codePlan.techStack.database}\n`;}
         }
 
         if (context?.knowledge && context.knowledge.length > 0) {
@@ -366,7 +366,7 @@ export class CodeGeneratorAgent extends BaseAgent<CodeGeneratorInput, CodeGenera
                 const mods = JSON.parse(cleanJson);
                 if (Array.isArray(mods)) {
                      // Ensure filePath is set
-                     mods.forEach(m => { if (!m.filePath) m.filePath = filePath; });
+                     mods.forEach(m => { if (!m.filePath) {m.filePath = filePath;} });
                      return { type: 'modify', modifications: mods };
                 }
             } catch (e) {
@@ -403,14 +403,14 @@ export class CodeGeneratorAgent extends BaseAgent<CodeGeneratorInput, CodeGenera
         
         // Match patterns like "update function validate" or "modify class DataProcessor"
         const funcMatch = desc.match(/(?:function|method)\s+(\w+)/);
-        if (funcMatch) return { type: 'function', name: funcMatch[1] };
+        if (funcMatch) {return { type: 'function', name: funcMatch[1] };}
         
         const classMatch = desc.match(/class\s+(\w+)/);
-        if (classMatch) return { type: 'class', name: classMatch[1] };
+        if (classMatch) {return { type: 'class', name: classMatch[1] };}
         
-        if (desc.includes('function')) return { type: 'function' };
-        if (desc.includes('class')) return { type: 'class' };
-        if (desc.includes('component')) return { type: 'component' };
+        if (desc.includes('function')) {return { type: 'function' };}
+        if (desc.includes('class')) {return { type: 'class' };}
+        if (desc.includes('component')) {return { type: 'component' };}
         
         return null;
     }

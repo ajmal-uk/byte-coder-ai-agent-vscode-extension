@@ -451,7 +451,7 @@ export class ByteAIClient {
                     buffer = lines.pop() || ""; 
 
                     for (const line of lines) {
-                        if (!line.trim()) continue;
+                        if (!line.trim()) {continue;}
                         try {
                             const json = JSON.parse(line);
                             if (json.message && json.message.content) {
@@ -479,7 +479,7 @@ export class ByteAIClient {
                             }
                         } catch (e) {}
                      }
-                     if (fullResponse && !res.complete) resolve(fullResponse); // Ensure resolve if not already done
+                     if (fullResponse && !res.complete) {resolve(fullResponse);} // Ensure resolve if not already done
                 });
             });
 

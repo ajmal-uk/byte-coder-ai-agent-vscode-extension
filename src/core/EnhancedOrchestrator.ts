@@ -369,10 +369,10 @@ export class EnhancedOrchestrator {
     }
 
     private assessTaskRisk(task: TaskNode): 'low' | 'medium' | 'high' {
-        if (task.complexity === 'complex') return 'high';
-        if (task.complexity === 'medium') return 'medium';
-        if (task.type === 'command' && task.command?.includes('rm') || task.command?.includes('delete')) return 'high';
-        if (task.type === 'command' && task.command?.includes('npm install') || task.command?.includes('pip install')) return 'medium';
+        if (task.complexity === 'complex') {return 'high';}
+        if (task.complexity === 'medium') {return 'medium';}
+        if (task.type === 'command' && task.command?.includes('rm') || task.command?.includes('delete')) {return 'high';}
+        if (task.type === 'command' && task.command?.includes('npm install') || task.command?.includes('pip install')) {return 'medium';}
         return 'low';
     }
 
@@ -585,7 +585,7 @@ export class EnhancedOrchestrator {
 
     // Helper methods
     private async getFileStructure(): Promise<string[]> {
-        if (!this.workspaceRoot) return [];
+        if (!this.workspaceRoot) {return [];}
         try {
             const files = await vscode.workspace.fs.readDirectory(vscode.Uri.file(this.workspaceRoot));
             return files.map(([name]) => name);
@@ -596,10 +596,10 @@ export class EnhancedOrchestrator {
 
     private async detectProjectType(): Promise<string> {
         const files = await this.getFileStructure();
-        if (files.includes('package.json')) return 'node';
-        if (files.includes('requirements.txt') || files.includes('pyproject.toml')) return 'python';
-        if (files.includes('Cargo.toml')) return 'rust';
-        if (files.includes('go.mod')) return 'go';
+        if (files.includes('package.json')) {return 'node';}
+        if (files.includes('requirements.txt') || files.includes('pyproject.toml')) {return 'python';}
+        if (files.includes('Cargo.toml')) {return 'rust';}
+        if (files.includes('go.mod')) {return 'go';}
         return 'generic';
     }
 }

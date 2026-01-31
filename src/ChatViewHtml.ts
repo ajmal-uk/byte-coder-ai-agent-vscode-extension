@@ -1356,7 +1356,7 @@ export class ChatViewHtml {
             <header>
                 <div class="brand">
                     <img src="${logoUri}" class="logo-img" alt="Logo">
-                    <span style="font-size: 10px; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; border: 1px solid var(--accent); padding: 1px 4px; border-radius: 4px; margin-left: -2px; font-weight: 800; opacity: 0.9; letter-spacing: 0.5px;">BYTE</span>
+                    <span style="font-size: 10px; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; border: 1px solid var(--accent); padding: 1px 4px; border-radius: 4px; margin-left: -2px; font-weight: 800; opacity: 0.9; letter-spacing: 0.5px;">BYTE CODER</span>
                 </div>
                 
                 <div class="model-selector-container" style="margin-left: auto; margin-right: 12px;">

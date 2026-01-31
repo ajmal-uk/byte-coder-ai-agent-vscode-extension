@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ManagerAgent } from './ManagerAgent';
-import { TaskNode, AgentOutput, AgentStatus } from './AgentTypes';
+import { Logger } from './Logger';
+import { ManagerAgent, ManagerInput } from './ManagerAgent';
+import { TaskNode } from './AgentTypes';
 import { ExecutorAgent } from '../agents/ExecutorAgent';
 import { VersionControllerAgent } from '../agents/VersionControllerAgent';
 import { CodeModifierAgent } from '../agents/CodeModifierAgent';
@@ -10,6 +11,8 @@ import { CodeGeneratorAgent } from '../agents/CodeGeneratorAgent';
 import { TaskPlannerAgent, TaskPlannerResult } from '../agents/TaskPlannerAgent';
 import { ContextSearchAgent } from '../agents/ContextSearchAgent';
 import { ArchitectAgent, ArchitectureDesign } from '../agents/ArchitectAgent';
+import { QualityAssuranceAgent, QAInput } from '../agents/QualityAssuranceAgent';
+import { DocWriterAgent, DocWriterInput } from '../agents/DocWriterAgent';
 import { PersonaManager, PersonaType } from './PersonaManager';
 
 export interface AgenticAction {
@@ -29,6 +32,130 @@ export interface AgenticResult {
     checkpointId?: string;
 }
 
+/**
+ * AgentOrchestrator
+ * 
+ * The central nervous system of the Byte Coder Multi-Agent System.
+ * It implements a "Think-Act-Verify" architecture to handle complex software engineering tasks.
+ * 
+ * =========================================================================================
+ *                                PIPELINE ARCHITECTURE DIAGRAM
+ * =========================================================================================
+ * 
+ *  User Request ──► [ Phase 0: MANAGER AGENT ]
+ *                          │
+ *                          ▼
+ *                  Analyzes Intent & Complexity
+ *                          │
+ *          ┌───────────────┴───────────────┐
+ *          ▼                               ▼
+ *   (Complex/Design)                 (Simple/Fix)
+ *          │                               │
+ * [ Phase 1.1: ARCHITECT ]                 │
+ *          │                               │
+ *          ▼                               │
+ * [ Phase 1.2: TASK PLANNER ] ◄────────────┘
+ *          │
+ *          ▼
+ *    Generates DAG (Directed Acyclic Graph) of Tasks
+ *          │
+ *          ▼
+ * [ Phase 2: EXECUTION ENGINE ] ◄───────────────┐
+ *          │                                    │
+ *    (Parallel Execution Loop)                  │
+ *    ┌─────┬─────┬─────┬─────┐                  │
+ *    ▼     ▼     ▼     ▼     ▼                  │
+ * [Code] [Exec] [QA] [Doc] [Mod]           (Recovery)
+ *    │     │     │     │     │                  │
+ *    └─────┴──┬──┴─────┴─────┘                  │
+ *             │                                 │
+ *        Task Failed? ──────────────────────────┘
+ *             │
+ *        Task Success
+ *             │
+ *             ▼
+ * [ Phase 3: VERIFICATION ]
+ *             │
+ *             ▼
+ *      Final Result
+ * 
+ * =========================================================================================
+ * 
+ * DETAILED PROCESS FLOWS:
+ * 
+ * -----------------------------------------------------------------------------------------
+ * PHASE 0: MANAGER AGENT (Intent Analysis)
+ * -----------------------------------------------------------------------------------------
+ * 
+ *  Input (Query) ──► [ Intent Classifier ] ──► [ Complexity Scorer ] ──► Decision
+ *                          │                           │
+ *                          ▼                           ▼
+ *                    (Build/Fix/Modify)         (Simple/Medium/Complex)
+ * 
+ * -----------------------------------------------------------------------------------------
+ * PHASE 1.2: TASK PLANNER (Dependency Graph Generation)
+ * -----------------------------------------------------------------------------------------
+ * 
+ *  High-Level Goal ──► [ Decomposition ] ──► [ Dependency Analysis ] ──► Task Graph (DAG)
+ *                                                                             │
+ *           ┌───────────────┬─────────────────┐                               │
+ *           ▼               ▼                 ▼                               ▼
+ *      [ Task A ] ──► [ Task B ] ──► [ Task C ]                       (Execution Order)
+ *           │               │
+ *           └───────────────┘
+ *             (Dependencies)
+ * 
+ * -----------------------------------------------------------------------------------------
+ * PHASE 2: EXECUTION ENGINE (The "Act" Loop)
+ * -----------------------------------------------------------------------------------------
+ * 
+ *  Queue ──► [ Scheduler ] ──► Is Dependency Met? ──Yes──► [ Dispatch to Agent ]
+ *                 ▲                   │                           │
+ *                 │                   No                          ▼
+ *                 │                   │                    [ Execute Action ]
+ *                 └───────────────────┘                           │
+ *                                                                 ▼
+ *                                                          [ Verify Result ]
+ *                                                                 │
+ *                                         Success ◄───────────────┴──────────────► Failure
+ *                                            │                                       │
+ *                                            ▼                                       ▼
+ *                                    [ Mark Complete ]                       [ Error Recovery ]
+ *                                            │                                       │
+ *                                            ▼                                       ▼
+ *                                    [ Update Graph ] ◄────────────────────── [ Re-plan Task ]
+ * 
+ * =========================================================================================
+ * 
+ * PROCESS FLOW DETAILS:
+ * 
+ * 1. MANAGER AGENT (Phase 0):
+ *    - Inputs: User Query, Active File, Project Type.
+ *    - Outputs: Intent (Build, Fix, Modify...), Complexity (Simple, Medium, Complex).
+ *    - Role: Routes the request to the appropriate pipeline path.
+ * 
+ * 2. ARCHITECT AGENT (Phase 1.1 - Conditional):
+ *    - Triggered for: 'Complex' tasks, 'Build' or 'Design' intents.
+ *    - Role: Analyzes codebase, proposes high-level system design, patterns, and structure.
+ * 
+ * 3. TASK PLANNER AGENT (Phase 1.2):
+ *    - Role: Breaks down the high-level goal (or Design) into granular, executable tasks.
+ *    - Output: A Task Graph with dependencies (e.g., "Create File A" must happen before "Edit File A").
+ * 
+ * 4. EXECUTION ENGINE (Phase 2):
+ *    - Parallel Processing: Executes tasks that have no pending dependencies simultaneously.
+ *    - Agents:
+ *      - CodeGenerator: Writes new code or refactors existing code using LLMs.
+ *      - Executor: Runs shell commands (npm install, git, etc.).
+ *      - CodeModifier: Performs specific edits (redirected to CodeGenerator for intelligence).
+ *      - QualityAssurance: Reviews code against requirements.
+ *      - DocWriter: Generates documentation (README, inline comments).
+ *    - Self-Correction: If a task fails, the Orchestrator attempts to "Recover" by asking the TaskPlanner to generate a fix.
+ * 
+ * 5. VERIFICATION (Phase 3):
+ *    - Runs validation commands (tests, builds) associated with tasks to ensure correctness.
+ */
+
 export class AgentOrchestrator {
     private managerAgent: ManagerAgent;
     private executorAgent: ExecutorAgent;
@@ -38,6 +165,8 @@ export class AgentOrchestrator {
     private taskPlanner: TaskPlannerAgent;
     private contextSearch: ContextSearchAgent;
     private architect: ArchitectAgent;
+    private qualityAssurance: QualityAssuranceAgent;
+    private docWriter: DocWriterAgent;
     private personaManager: PersonaManager;
     private workspaceRoot: string;
 
@@ -54,6 +183,8 @@ export class AgentOrchestrator {
         this.taskPlanner = new TaskPlannerAgent();
         this.contextSearch = new ContextSearchAgent(context);
         this.architect = new ArchitectAgent();
+        this.qualityAssurance = new QualityAssuranceAgent();
+        this.docWriter = new DocWriterAgent();
         this.personaManager = new PersonaManager();
         this.workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
     }
@@ -68,23 +199,49 @@ export class AgentOrchestrator {
      */
     public async executeRequest(query: string, activeFilePath?: string): Promise<string> {
         try {
+            // 0. MANAGER: Analyze Request
+            console.log('[AgentOrchestrator] Phase 0: Manager Analysis...');
+            const projectType = await this.detectProjectType();
+            
+            const managerInput: ManagerInput = {
+                query,
+                activeFilePath,
+                projectType
+            };
+            
+            const managerResult = await this.managerAgent.execute(managerInput);
+            
+            // Check if manager failed
+            if (managerResult.status === 'failed') {
+                console.warn('[AgentOrchestrator] Manager analysis failed, proceeding with default flow.');
+            }
+            
+            const decision = managerResult.payload;
+            console.log(`[AgentOrchestrator] Manager Decision: ${decision.intent} (${decision.complexity})`);
+
             // 1. THINK: Generate a Plan
             console.log('[AgentOrchestrator] Phase 1: Planning...');
             const fileStructure = await this.getFileStructure();
-            const projectType = await this.detectProjectType();
 
             // 1.1 ARCHITECT: Design the solution
-            console.log('[AgentOrchestrator] Phase 1.1: Architectural Design...');
-            const designResult = await this.architect.execute({
-                query,
-                projectType,
-                existingFiles: fileStructure
-            });
-
             let design: ArchitectureDesign | undefined;
-            if (designResult.status === 'success' && designResult.payload) {
-                design = designResult.payload;
-                console.log(`[AgentOrchestrator] Architecture designed: ${design.architecture}`);
+            
+            // Only run Architect for complex/medium tasks or explicit design intent
+            // This optimization saves time for simple fixes or questions
+            if (decision.complexity === 'complex' || decision.intent === 'Design' || decision.intent === 'Build') {
+                console.log('[AgentOrchestrator] Phase 1.1: Architectural Design...');
+                const designResult = await this.architect.execute({
+                    query,
+                    projectType,
+                    existingFiles: fileStructure
+                });
+
+                if (designResult.status === 'success' && designResult.payload) {
+                    design = designResult.payload;
+                    console.log(`[AgentOrchestrator] Architecture designed: ${design.architecture}`);
+                }
+            } else {
+                console.log('[AgentOrchestrator] Skipping Architecture phase for simple/direct task.');
             }
 
             // 1.2 PLAN: Generate Tasks based on Design
@@ -121,7 +278,7 @@ export class AgentOrchestrator {
             console.log(`[AgentOrchestrator] Generated ${sortedTasks.length} tasks.`);
 
             // 2. ACT & VERIFY: Execute the plan
-            console.log('[AgentOrchestrator] Phase 2: Execution & Verification...');
+            Logger.log('[AgentOrchestrator] Phase 2: Execution & Verification...');
             await this.executeTaskGraph(sortedTasks, query);
 
             return "Request completed successfully.";
@@ -230,8 +387,9 @@ export class AgentOrchestrator {
                  throw new Error(`Task ${task.id} (Executor) has no command or validationCommand to run.`);
              }
         } else if (agentName === 'CodeModifier') {
-             // Redirect CodeModifier tasks to CodeGenerator for now, as CodeModifier requires precise diffs
-             // and CodeGenerator is capable of handling modification instructions via LLM
+             // Redirect CodeModifier tasks to CodeGenerator unless specific modification blocks are provided.
+             // CodeGenerator uses LLM to implement high-level modification descriptions.
+             console.log(`[AgentOrchestrator] Redirecting CodeModifier task '${task.description}' to CodeGenerator for LLM-based implementation.`);
              const singleTaskPlan: TaskPlannerResult = {
                 taskGraph: [task],
                 executionOrder: [task.id],
@@ -250,6 +408,69 @@ export class AgentOrchestrator {
                 },
                  context: { knowledge: [{ summary: contextQuery, relevance: 1 }] }
              });
+        } else if (agentName === 'QualityAssurance') {
+            console.log(`[AgentOrchestrator] Running Quality Assurance for task: ${task.id}`);
+            const qaInput: QAInput = {
+                originalRequirements: contextQuery,
+                implementedFiles: task.filePath ? [task.filePath] : []
+            };
+            const qaResult = await this.qualityAssurance.execute(qaInput);
+            if (qaResult.status === 'failed' || (qaResult.payload && !qaResult.payload.passed)) {
+                const issues = qaResult.payload?.issues?.map(i => `${i.severity}: ${i.description}`).join('; ') || 'No specific issues reported';
+                throw new Error(`QA Validation Failed: ${issues}`);
+            }
+        } else if (agentName === 'DocWriter') {
+            console.log(`[AgentOrchestrator] Running DocWriter for task: ${task.id}`);
+            const docInput: DocWriterInput = {
+                type: task.description.toLowerCase().includes('readme') ? 'readme' : 'inline_comments',
+                content: contextQuery,
+                filePath: task.filePath
+            };
+            const docResult = await this.docWriter.execute(docInput);
+            
+            if (docResult.status === 'success' && docResult.payload.documentation) {
+                const targetPath = task.filePath ? path.resolve(this.workspaceRoot, task.filePath) : null;
+                
+                if (targetPath) {
+                    // Handle standalone documentation files
+                    if (['readme', 'changelog', 'api_reference', 'decision_record'].includes(docInput.type)) {
+                        try {
+                            fs.writeFileSync(targetPath, docResult.payload.documentation, 'utf8');
+                            console.log(`[AgentOrchestrator] Wrote documentation to ${targetPath}`);
+                        } catch (err: any) {
+                             throw new Error(`Failed to write documentation to ${targetPath}: ${err.message}`);
+                        }
+                    } 
+                    // Handle inline insertion if location provided
+                    else if (docResult.payload.insertLocation && fs.existsSync(targetPath)) {
+                        try {
+                            const fileContent = fs.readFileSync(targetPath, 'utf8');
+                            const lines = fileContent.split('\n');
+                            const insertLine = docResult.payload.insertLocation.line - 1; // 1-based to 0-based
+                            
+                            if (insertLine >= 0 && insertLine <= lines.length) {
+                                lines.splice(insertLine, 0, docResult.payload.documentation);
+                                fs.writeFileSync(targetPath, lines.join('\n'), 'utf8');
+                                console.log(`[AgentOrchestrator] Inserted documentation into ${targetPath} at line ${insertLine + 1}`);
+                            }
+                        } catch (err: any) {
+                            console.warn(`[AgentOrchestrator] Failed to insert inline docs: ${err.message}`);
+                        }
+                    }
+                }
+            }
+        } else {
+            console.warn(`[AgentOrchestrator] Unknown agent: ${agentName}. Attempting execution via Executor as fallback.`);
+            // Fallback to Executor if command is present
+            const commandToRun = task.command || (task.type === 'command' ? task.description : null);
+             if (commandToRun) {
+                 await this.executorAgent.execute({
+                     command: commandToRun,
+                     cwd: this.workspaceRoot
+                 });
+             } else {
+                 throw new Error(`Task ${task.id} assigned to unknown agent '${agentName}' and has no executable command.`);
+             }
         }
 
         // VERIFY
@@ -267,7 +488,29 @@ export class AgentOrchestrator {
     }
 
     private async attemptRecovery(failedTask: TaskNode, error: Error, contextQuery: string): Promise<boolean> {
-        const recoveryQuery = `Task '${failedTask.description}' failed with error: ${error.message}. Fix it. Context: ${contextQuery}`;
+        console.log(`[AgentOrchestrator] Analyzing failure for task: ${failedTask.id}`);
+        
+        // Try to read the file if it exists to see current state
+        let fileContext = '';
+        if (failedTask.filePath) {
+             const targetPath = path.resolve(this.workspaceRoot, failedTask.filePath);
+             if (fs.existsSync(targetPath)) {
+                try {
+                    const content = fs.readFileSync(targetPath, 'utf8');
+                    // Truncate if too long
+                    const truncated = content.length > 2000 ? content.substring(0, 2000) + '... (truncated)' : content;
+                    fileContext = `\nCurrent content of ${failedTask.filePath}:\n\`\`\`\n${truncated}\n\`\`\`\n`;
+                } catch (e) {
+                    console.warn(`[AgentOrchestrator] Failed to read file for recovery context: ${e}`);
+                }
+             }
+        }
+
+        const recoveryQuery = `Task '${failedTask.description}' failed with error: ${error.message}.
+Context: ${contextQuery}
+${fileContext}
+Analyze the error and generate a recovery plan.`;
+
         console.log(`[AgentOrchestrator] Generating recovery plan for: ${failedTask.id}`);
 
         const recoveryPlan = await this.taskPlanner.execute({
@@ -326,12 +569,16 @@ export class AgentOrchestrator {
         while ((match = tagRegex.exec(response)) !== null) {
             const [_, attributesStr, content] = match;
             
-            // Extract attributes
-            const typeMatch = attributesStr.match(/type=["']([^"']+)["']/);
-            const pathMatch = attributesStr.match(/path=["']([^"']+)["']/);
-            const commandMatch = attributesStr.match(/command=["']([^"']+)["']/);
+            // Extract attributes using a more robust regex that handles both single and double quotes
+            const getAttribute = (name: string): string | null => {
+                const regex = new RegExp(`${name}=["']([^"']+)["']`);
+                const match = attributesStr.match(regex);
+                return match ? match[1] : null;
+            };
             
-            const type = typeMatch ? typeMatch[1] : null;
+            const type = getAttribute('type');
+            const pathAttr = getAttribute('path');
+            const commandAttr = getAttribute('command');
             
             if (type) {
                 // Clean up content (remove leading/trailing whitespace/newlines)
@@ -344,10 +591,10 @@ export class AgentOrchestrator {
 
                 actions.push({
                     type: type as any,
-                    path: pathMatch ? pathMatch[1] : undefined,
-                    command: commandMatch ? commandMatch[1] : undefined,
+                    path: pathAttr || undefined,
+                    command: commandAttr || undefined,
                     content: cleanContent,
-                    description: `${type} ${pathMatch?.[1] || commandMatch?.[1] || ''}`
+                    description: `${type} ${pathAttr || commandAttr || ''}`
                 });
             }
         }
@@ -448,8 +695,9 @@ export class AgentOrchestrator {
                             // Content is expected to be:
                             // <search>...</search>
                             // <replace>...</replace>
-                            const searchMatch = /<search>([\s\S]*?)<\/search>/.exec(action.content);
-                            const replaceMatch = /<replace>([\s\S]*?)<\/replace>/.exec(action.content);
+                            // Improved regex to allow optional whitespace around content
+                            const searchMatch = /<search>\s*([\s\S]*?)\s*<\/search>/.exec(action.content);
+                            const replaceMatch = /<replace>\s*([\s\S]*?)\s*<\/replace>/.exec(action.content);
                             
                             if (searchMatch) {
                                 const searchBlock = searchMatch[1]; 
@@ -465,6 +713,7 @@ export class AgentOrchestrator {
                                     endLine: -1
                                 };
                                 
+                                console.log(`[AgentOrchestrator] Applying partial edit to ${action.path}`);
                                 const modResult = await this.codeModifier.execute({
                                     modifications: [modification],
                                     dryRun: false,
@@ -493,7 +742,7 @@ export class AgentOrchestrator {
                     success
                 });
 
-                if (success) successCount++;
+                if (success) {successCount++;}
 
             } catch (error: any) {
                 console.error(`Action failed: ${action.type}`, error);
@@ -515,7 +764,7 @@ export class AgentOrchestrator {
 
     // Helpers
     private async getFileStructure(): Promise<string[]> {
-        if (!this.workspaceRoot) return [];
+        if (!this.workspaceRoot) {return [];}
         try {
             // Simple recursive read or top-level
             const files = await fs.promises.readdir(this.workspaceRoot);
@@ -527,10 +776,10 @@ export class AgentOrchestrator {
 
     private async detectProjectType(): Promise<string> {
         const files = await this.getFileStructure();
-        if (files.includes('package.json')) return 'node';
-        if (files.includes('requirements.txt') || files.includes('pyproject.toml')) return 'python';
-        if (files.includes('Cargo.toml')) return 'rust';
-        if (files.includes('go.mod')) return 'go';
+        if (files.includes('package.json')) {return 'node';}
+        if (files.includes('requirements.txt') || files.includes('pyproject.toml')) {return 'python';}
+        if (files.includes('Cargo.toml')) {return 'rust';}
+        if (files.includes('go.mod')) {return 'go';}
         return 'generic';
     }
 

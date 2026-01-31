@@ -142,7 +142,7 @@ export class CodePlannerAgent extends BaseAgent<CodePlannerInput, CodePlannerRes
      * Generate detailed specifications for key files
      */
     private async generateFileSpecs(input: CodePlannerInput, files: string[], interfaces: string[]): Promise<{ filePath: string; spec: string }[]> {
-        if (files.length === 0) return [];
+        if (files.length === 0) {return [];}
         
         // Only generate specs for the most important files to save tokens/time
         // Filter out config files, simple indexes, etc.
@@ -153,7 +153,7 @@ export class CodePlannerAgent extends BaseAgent<CodePlannerInput, CodePlannerRes
             (f.endsWith('.ts') || f.endsWith('.tsx') || f.endsWith('.js') || f.endsWith('.py'))
         ).slice(0, 10); // Limit to top 10 files
 
-        if (importantFiles.length === 0) return [];
+        if (importantFiles.length === 0) {return [];}
 
         const prompt = `
 You are a Lead Software Engineer.
@@ -263,12 +263,12 @@ Output ONLY a JSON array of objects:
         if (knowledge && knowledge.length > 0) {
             knowledge.forEach(k => {
                 const summary = k.summary.toLowerCase();
-                if (summary.includes('product') || summary.includes('item')) features.push('products');
-                if (summary.includes('service')) features.push('services');
-                if (summary.includes('blog') || summary.includes('article')) features.push('blog');
-                if (summary.includes('contact')) features.push('contact');
-                if (summary.includes('about') || summary.includes('mission')) features.push('about');
-                if (summary.includes('dashboard') || summary.includes('admin')) features.push('dashboard');
+                if (summary.includes('product') || summary.includes('item')) {features.push('products');}
+                if (summary.includes('service')) {features.push('services');}
+                if (summary.includes('blog') || summary.includes('article')) {features.push('blog');}
+                if (summary.includes('contact')) {features.push('contact');}
+                if (summary.includes('about') || summary.includes('mission')) {features.push('about');}
+                if (summary.includes('dashboard') || summary.includes('admin')) {features.push('dashboard');}
             });
         }
 
@@ -383,7 +383,7 @@ Example Output:
             return input.architecture.apiEndpoints;
         }
 
-        if (input.projectType === 'web') return undefined;
+        if (input.projectType === 'web') {return undefined;}
 
         const features = input.features || this.extractFeatures(input.query.toLowerCase());
 
@@ -455,7 +455,7 @@ Format:
      * Generate state flow descriptions
      */
     private generateStateFlows(input: CodePlannerInput): string[] | undefined {
-        if (input.projectType === 'api') return undefined;
+        if (input.projectType === 'api') {return undefined;}
 
         const flows: string[] = [];
         const features = input.features || this.extractFeatures(input.query.toLowerCase());

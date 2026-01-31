@@ -77,7 +77,7 @@ export class ExecutorAgent extends BaseAgent<ExecutorInput, ExecutorOutput> {
                 let combinedStderr = '';
 
                 for (const cmd of input.commands) {
-                    if (!cmd) continue;
+                    if (!cmd) {continue;}
                     let cmdResult: ExecutorOutput;
 
                     if (typeof cmd === 'string') {
@@ -322,7 +322,7 @@ export class ExecutorAgent extends BaseAgent<ExecutorInput, ExecutorOutput> {
     private generateRecoveryOptions(result: ExecutorOutput): any[] {
         const options: any[] = [];
         
-        if (!result.parsed) return options;
+        if (!result.parsed) {return options;}
 
         const { errorType, errorMessage } = result.parsed;
 

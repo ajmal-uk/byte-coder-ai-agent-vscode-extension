@@ -56,7 +56,7 @@ export class FileFinderAgent {
 
         for (const fileUri of allFiles) {
             const relativePath = vscode.workspace.asRelativePath(fileUri);
-            if (processedPaths.has(relativePath)) continue;
+            if (processedPaths.has(relativePath)) {continue;}
             processedPaths.add(relativePath);
 
             const match = this.scoreFile(fileUri, relativePath, intent, activeFilePath);
@@ -140,14 +140,14 @@ export class FileFinderAgent {
      * Handles non-contiguous matching (e.g. 'fba' matches 'foo-bar-app')
      */
     private calculateFuzzyScore(query: string, target: string): number {
-        if (!query || !target) return 0;
+        if (!query || !target) {return 0;}
         const q = query.toLowerCase();
         const t = target.toLowerCase();
         
         // Exact match
-        if (t === q) return 100;
+        if (t === q) {return 100;}
         // Contains match
-        if (t.includes(q)) return 80;
+        if (t.includes(q)) {return 80;}
         
         // Non-contiguous sequence match
         let qIdx = 0;
@@ -212,7 +212,7 @@ export class FileFinderAgent {
             if (lowerFileName.includes(kw)) {
                 score += 20;
                 matchedKeywords.push(kw);
-                if (matchType !== 'exact') matchType = 'fuzzy';
+                if (matchType !== 'exact') {matchType = 'fuzzy';}
             } 
             // Path inclusion check
             else if (lowerPath.includes(kw)) {

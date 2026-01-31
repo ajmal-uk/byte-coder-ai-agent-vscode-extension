@@ -4,7 +4,7 @@
 **Byte Coder AI Agent** is an agentic AI coding assistant for VS Code featuring a multi-agent architecture. It goes beyond simple text completion by understanding your entire codebase through specialized sub-agents. It offers a premium glassmorphism UI, smart file discovery, and AST-aware code extraction.
 
 ## Core Architecture: Multi-Agent System
-The extension relies on a sophisticated ecosystem of specialized sub-agents to process user requests effectively:
+The extension relies on a sophisticated "Think-Act-Verify" ecosystem of specialized sub-agents:
 
 ### 🧠 Analysis & Discovery Layer
 1.  **IntentAnalyzer** (`src/agents/IntentAnalyzer.ts`)
@@ -24,7 +24,7 @@ The extension relies on a sophisticated ecosystem of specialized sub-agents to p
     *   **Role**: The "Judge".
     *   **Function**: Ranks information to ensure optimal context usage.
 
-### 🛠️ Execution & Planning Layer (New in v1.0.2)
+### 🛠️ Execution & Planning Layer (New in v1.0.3)
 5.  **ManagerAgent** (`src/core/ManagerAgent.ts`)
     *   **Role**: The "Project Manager".
     *   **Function**: Oversees the entire task lifecycle, deciding when to plan, execute, or ask for clarification.
@@ -46,6 +46,10 @@ The extension relies on a sophisticated ecosystem of specialized sub-agents to p
     *   **Role**: The "Operator".
     *   **Function**: Executes terminal commands, runs tests, and verifies fixes.
     *   **Self-Healing**: Captures error output (stderr) and triggers a feedback loop to the ManagerAgent for correction.
+
+9.  **AgentOrchestrator** (`src/core/AgentOrchestrator.ts`)
+    *   **Role**: The "Conductor".
+    *   **Function**: Manages the "Think-Act-Verify" pipeline loop, dispatching tasks to specific agents and ensuring success.
 
 ## Key Features
 

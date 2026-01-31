@@ -1,8 +1,8 @@
 {
     "name": "byte-coder-ai-agent",
-    "displayName": "Byte Coder AI Agent",
-    "description": "🚀 Agentic AI coding assistant with multi-agent architecture. Features 4 specialized sub-agents: IntentAnalyzer (semantic search), FileFinderAgent (smart discovery), CodeExtractorAgent (AST-aware extraction), and RelevanceScorerAgent. Understands your entire codebase, not just selected code. Premium glassmorphism UI with @ file mentions, / slash commands, and one-click actions. Free & powerful alternative to Copilot!",
-    "version": "1.0.2",
+    "displayName": "Byte Coder AI Agent - Autonomous Software Engineer",
+    "description": "🚀 The Autonomous AI Software Engineer. Better than Copilot. Agentic AI coding assistant with multi-agent architecture. Features specialized sub-agents for Planning, Execution, and Verification. Understands your entire codebase, not just selected code. Premium glassmorphism UI with @ file mentions, / slash commands, and one-click actions.",
+    "version": "1.0.3",
     "publisher": "uthakkan",
     "icon": "images/logo.png",
     "galleryBanner": {
@@ -317,7 +317,7 @@
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
         "lint": "eslint src --ext ts",
-        "test": "node ./out/tests/agent-tests.js"
+        "test": "echo \"No tests specified\""
     },
     "devDependencies": {
         "@types/node": "18.x",

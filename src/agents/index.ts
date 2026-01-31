@@ -12,6 +12,7 @@ export { ContextSearchAgent, ContextSearchInput, ContextSearchResult } from './C
 export { FilePartSearcherAgent, FilePartSearchInput, FilePartMatch } from './FilePartSearcherAgent';
 export { VisionAgent, VisionInput, VisionResult } from './VisionAgent';
 export { WebSearchAgent, WebSearchInput, WebSearchResult } from './WebSearchAgent';
+export { SearchAgent, SearchStatus } from './SearchAgent';
 
 // ===== ENHANCED ANALYTICS LAYER =====
 export { EnhancedAnalyzerAgent, EnhancedAnalysisInput, EnhancedAnalysisResult } from './EnhancedAnalyzerAgent';

@@ -161,7 +161,7 @@ export class ContextSearchAgent extends BaseAgent<ContextSearchInput, ContextSea
      * Search workspace state for persistent memories
      */
     private async searchWorkspaceState(input: ContextSearchInput): Promise<ContextMemory[]> {
-        if (!this.context) return [];
+        if (!this.context) {return [];}
 
         const memories: ContextMemory[] = [];
 
@@ -174,7 +174,7 @@ export class ContextSearchAgent extends BaseAgent<ContextSearchInput, ContextSea
 
         for (const memory of storedMemories) {
             const memoryDate = new Date(memory.date);
-            if (memoryDate < cutoffDate) continue;
+            if (memoryDate < cutoffDate) {continue;}
 
             const relevance = this.calculateTermRelevance(memory.summary, queryTerms);
             if (relevance > 0.2) {
@@ -407,7 +407,7 @@ export class ContextSearchAgent extends BaseAgent<ContextSearchInput, ContextSea
      * Calculate relevance of text to query terms
      */
     private calculateTermRelevance(text: string, terms: string[]): number {
-        if (!text) return 0;
+        if (!text) {return 0;}
         const lowerText = text.toLowerCase();
         let matches = 0;
 
@@ -488,7 +488,7 @@ export class ContextSearchAgent extends BaseAgent<ContextSearchInput, ContextSea
      * Store a memory for future reference
      */
     async storeMemory(memory: Omit<ContextMemory, 'date'>): Promise<void> {
-        if (!this.context) return;
+        if (!this.context) {return;}
 
         const memories = this.context.workspaceState.get<ContextMemory[]>('byteAI.memories', []);
 

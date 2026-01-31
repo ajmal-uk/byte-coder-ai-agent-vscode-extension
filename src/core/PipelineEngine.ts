@@ -511,7 +511,7 @@ export class PipelineEngine {
         // Filter by plan's file patterns if strict
         const filteredFiles = fileMatches.filter(f => {
             // Simple extension check from plan.filePatterns
-            if (plan.filePatterns.length === 0) return true;
+            if (plan.filePatterns.length === 0) {return true;}
             return plan.filePatterns.some(pat => f.uri.fsPath.endsWith(pat.replace('*', '')));
         });
 
@@ -638,7 +638,7 @@ export class PipelineEngine {
                             query: step.args?.query || context.query
                         });
                         result = wsOutput.status === 'success' ? wsOutput.payload : null;
-                        if (wsOutput.status === 'failed') throw new Error(wsOutput.error?.message || 'Web search failed');
+                        if (wsOutput.status === 'failed') {throw new Error(wsOutput.error?.message || 'Web search failed');}
                         break;
                     case 'ContextAnalyzer': {
                          // Handle Web Search summarization
@@ -1012,10 +1012,10 @@ export class PipelineEngine {
             }
 
             const nextTaskId = todoOutput.payload.nextTaskId;
-            if (!nextTaskId) break;
+            if (!nextTaskId) {break;}
 
             const task = context.currentPlan.find(t => t.id === nextTaskId);
-            if (!task) break;
+            if (!task) {break;}
 
             lastTaskId = nextTaskId;
 
@@ -1211,7 +1211,7 @@ export class PipelineEngine {
         const lines: string[] = ['Pipeline Execution Summary:'];
         for (const [agent, result] of context.results) {
             lines.push(`  ${agent}: ${result.status} (${result.executionTimeMs}ms)`);
-            if (result.error) lines.push(`    Error: ${result.error.message}`);
+            if (result.error) {lines.push(`    Error: ${result.error.message}`);}
         }
         lines.push(`Total time: ${Date.now() - context.startTime}ms`);
         return lines.join('\n');
@@ -1244,7 +1244,7 @@ export class PipelineEngine {
 
     async getProjectMap(): Promise<string> {
         const folders = vscode.workspace.workspaceFolders;
-        if (!folders?.length) return 'No workspace open';
+        if (!folders?.length) {return 'No workspace open';}
         return "Project Structure (Simulated)";
     }
 
@@ -1252,7 +1252,7 @@ export class PipelineEngine {
      * Get the active task ID for the current agent
      */
     private getActiveTaskId(context: PipelineContext, agent: string): string | undefined {
-        if (!context.currentPlan) return undefined;
+        if (!context.currentPlan) {return undefined;}
         const index = this.getTaskIndexForAgent(agent);
         if (index >= 0 && index < context.currentPlan.length) {
             return context.currentPlan[index].id;
@@ -1264,7 +1264,7 @@ export class PipelineEngine {
      * Update plan status based on agent execution
      */
     private updatePlanStatus(context: PipelineContext, agent: string, status: 'in_progress' | 'completed' | 'failed') {
-        if (!context.currentPlan) return;
+        if (!context.currentPlan) {return;}
 
         const targetTaskIndex = this.getTaskIndexForAgent(agent);
 
@@ -1277,7 +1277,7 @@ export class PipelineEngine {
      * Retroactively update plan for already executed steps
      */
     private retroactivePlanUpdate(context: PipelineContext) {
-        if (!context.currentPlan) return;
+        if (!context.currentPlan) {return;}
 
         // If ContextAnalyzer ran, mark Analysis task as completed
         if (context.results.has('ContextAnalyzer') || context.results.has('IntentAnalyzer')) {

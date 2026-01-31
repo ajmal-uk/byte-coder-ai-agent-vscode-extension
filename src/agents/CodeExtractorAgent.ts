@@ -229,7 +229,7 @@ export class CodeExtractorAgent {
 
         for (let i = 0; i < Math.min(lines.length, 50); i++) {
             if (pattern.test(lines[i].trim())) {
-                if (start === -1) start = i;
+                if (start === -1) {start = i;}
                 end = i;
             } else if (start !== -1 && lines[i].trim() !== '' && !lines[i].trim().startsWith('//')) {
                 break;
@@ -258,7 +258,7 @@ export class CodeExtractorAgent {
             const startIndent = this.getIndent(lines[start]);
             for (let i = start + 1; i < lines.length; i++) {
                 const line = lines[i];
-                if (line.trim() === '') continue;
+                if (line.trim() === '') {continue;}
                 if (this.getIndent(line) <= startIndent && line.trim() !== '') {
                     return i - 1;
                 }
@@ -275,14 +275,14 @@ export class CodeExtractorAgent {
             braceCount += (line.match(/\{/g) || []).length;
             braceCount -= (line.match(/\}/g) || []).length;
 
-            if (braceCount > 0) foundFirstBrace = true;
+            if (braceCount > 0) {foundFirstBrace = true;}
 
             if (foundFirstBrace && braceCount <= 0) {
                 return i;
             }
 
             // Safety limit
-            if (i - start > 500) return i;
+            if (i - start > 500) {return i;}
         }
 
         return Math.min(start + 100, lines.length - 1);
@@ -335,17 +335,17 @@ export class CodeExtractorAgent {
         const usedLines = new Set<number>();
 
         for (let i = 0; i < lines.length; i++) {
-            if (usedLines.has(i)) continue;
+            if (usedLines.has(i)) {continue;}
 
             const line = lines[i];
             let matchScore = 0;
 
             // Check for matches
             for (const symbol of intent.symbols) {
-                if (line.includes(symbol)) matchScore += 5;
+                if (line.includes(symbol)) {matchScore += 5;}
             }
             for (const kw of intent.keywords) {
-                if (line.toLowerCase().includes(kw)) matchScore += 2;
+                if (line.toLowerCase().includes(kw)) {matchScore += 2;}
             }
 
             if (matchScore > 0) {
@@ -353,7 +353,7 @@ export class CodeExtractorAgent {
                 const start = Math.max(0, i - this.CONTEXT_LINES);
                 const end = Math.min(lines.length - 1, i + this.CONTEXT_LINES);
 
-                for (let j = start; j <= end; j++) usedLines.add(j);
+                for (let j = start; j <= end; j++) {usedLines.add(j);}
 
                 const content = lines.slice(start, end + 1).join('\n');
                 if (content.length <= this.MAX_CHUNK_SIZE) {

@@ -457,7 +457,7 @@ export class CodeModifierAgent extends BaseAgent<CodeModifierInput, CodeModifier
      */
     private findFuzzyMatch(lines: string[], searchBlock: string): { start: number, end: number } | null {
         const searchLines = searchBlock.split('\n').map(l => l.trim()).filter(l => l !== '');
-        if (searchLines.length === 0) return null;
+        if (searchLines.length === 0) {return null;}
 
         for (let i = 0; i < lines.length; i++) {
             // Check if first line matches with similarity threshold
@@ -508,8 +508,8 @@ export class CodeModifierAgent extends BaseAgent<CodeModifierInput, CodeModifier
         const str1 = s1.replace(/['"]/g, '"').replace(/\s+/g, '').toLowerCase();
         const str2 = s2.replace(/['"]/g, '"').replace(/\s+/g, '').toLowerCase();
 
-        if (str1 === str2) return 1.0;
-        if (str1.length < 2 || str2.length < 2) return 0.0;
+        if (str1 === str2) {return 1.0;}
+        if (str1.length < 2 || str2.length < 2) {return 0.0;}
 
         const bigrams1 = new Map<string, number>();
         for (let i = 0; i < str1.length - 1; i++) {
@@ -571,7 +571,7 @@ export class CodeModifierAgent extends BaseAgent<CodeModifierInput, CodeModifier
             // The end of match in normalized is idx + normSearch.str.length - 1
             const endNormIdx = idx + normSearch.str.length - 1;
             
-            if (endNormIdx >= normContent.map.length) return null; // Should not happen
+            if (endNormIdx >= normContent.map.length) {return null;} // Should not happen
             
             const endOriginalIdx = normContent.map[endNormIdx];
             
@@ -605,7 +605,7 @@ export class CodeModifierAgent extends BaseAgent<CodeModifierInput, CodeModifier
      */
     private adjustIndentation(block: string, indent: string): string {
         const lines = block.split('\n');
-        if (lines.length === 0) return block;
+        if (lines.length === 0) {return block;}
         
         // Detect base indentation of the block (ignoring first line if it's often 0-indented in templates)
         // Actually, usually we just want to prepend 'indent' to every line?
@@ -622,7 +622,7 @@ export class CodeModifierAgent extends BaseAgent<CodeModifierInput, CodeModifier
 
         // 2. Re-indent
         return lines.map(line => {
-            if (line.trim().length === 0) return '';
+            if (line.trim().length === 0) {return '';}
             if (line.startsWith(commonIndent)) {
                 return indent + line.substring(commonIndent.length);
             }

@@ -1,9 +1,9 @@
 import { ChatViewHtml } from "./ChatViewHtml";
-
 import * as vscode from 'vscode';
+import { Logger } from './core/Logger';
 import { ByteAIClient } from './byteAIClient';
 import { ContextManager } from './ContextManager';
-import { SearchAgent } from './SearchAgent';
+import { SearchAgent } from './agents/SearchAgent';
 import { AgentOrchestrator } from './core';
 import { ManagerAgent } from './core/ManagerAgent';
 import { PipelineEngine } from './core/PipelineEngine';
@@ -91,7 +91,9 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         }
 
         let isConnected = await this._client.checkLocalConnection();
-        if (isConnected) return true;
+        if (isConnected) {
+            return true;
+        }
 
         // Not running, try to start
         vscode.window.showInformationMessage('ByteAI: Starting local Ollama server...');
@@ -170,26 +172,26 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             case 'downloadModel':
                 const runningDownload = await this.ensureOllamaRunning();
                 if (!runningDownload) {
-                        const selection = await vscode.window.showErrorMessage(
-                            'Ollama could not be started automatically. Please install it or run "ollama serve" manually.',
-                            'Install Ollama'
-                        );
-                        
-                        if (selection === 'Install Ollama') {
-                            vscode.env.openExternal(vscode.Uri.parse('https://ollama.com/download'));
-                        }
-                        return;
+                    const selection = await vscode.window.showErrorMessage(
+                        'Ollama could not be started automatically. Please install it or run "ollama serve" manually.',
+                        'Install Ollama'
+                    );
+                    
+                    if (selection === 'Install Ollama') {
+                        vscode.env.openExternal(vscode.Uri.parse('https://ollama.com/download'));
+                    }
+                    return;
                 }
                 // If a model name is provided, download it directly
-                    if (data.modelName) {
-                        const terminal = vscode.window.createTerminal('ByteAI Model Download');
-                        terminal.show();
-                        terminal.sendText(`ollama pull ${data.modelName}`);
-                        this._client.setLocalModelName(data.modelName);
-                    } else {
-                        await this.downloadLocalModel();
-                    }
-                    break;
+                if (data.modelName) {
+                    const terminal = vscode.window.createTerminal('ByteAI Model Download');
+                    terminal.show();
+                    terminal.sendText(`ollama pull ${data.modelName}`);
+                    this._client.setLocalModelName(data.modelName);
+                } else {
+                    await this.downloadLocalModel();
+                }
+                break;
                 case 'newChat':
                     this.clearChat();
                     break;
@@ -310,13 +312,13 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                             score = 1; // Default visibility
                         } else {
                             // Exact filename match
-                            if (lowerName === query) score = 100;
+                            if (lowerName === query) {score = 100;}
                             // Exact path match
-                            else if (lowerPath === query) score = 90;
+                            else if (lowerPath === query) {score = 90;}
                             // Filename starts with query
-                            else if (lowerName.startsWith(query)) score = 80;
+                            else if (lowerName.startsWith(query)) {score = 80;}
                             // Path contains query
-                            else if (lowerPath.includes(query)) score = 50;
+                            else if (lowerPath.includes(query)) {score = 50;}
                             else {
                                 // Fuzzy match
                                 let qIdx = 0;
@@ -329,7 +331,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                                     }
                                     pIdx++;
                                 }
-                                if (matchCount === query.length) score = 20;
+                                if (matchCount === query.length) {score = 20;}
                             }
                         }
                         return { file: f, path: relativePath, score, isFolder: false };
@@ -345,10 +347,10 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                         if (!query) {
                             score = 1;
                         } else {
-                            if (lowerName === query) score = 95; // High priority for exact folder name
-                            else if (lowerPath === query) score = 90;
-                            else if (lowerName.startsWith(query)) score = 75;
-                            else if (lowerPath.includes(query)) score = 45;
+                            if (lowerName === query) {score = 95;} // High priority for exact folder name
+                            else if (lowerPath === query) {score = 90;}
+                            else if (lowerName.startsWith(query)) {score = 75;}
+                            else if (lowerPath.includes(query)) {score = 45;}
                             else {
                                 // Fuzzy
                                 let qIdx = 0; let pIdx = 0; let matchCount = 0;
@@ -356,7 +358,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                                     if (lowerPath[pIdx] === query[qIdx]) { matchCount++; qIdx++; }
                                     pIdx++;
                                 }
-                                if (matchCount === query.length) score = 15;
+                                if (matchCount === query.length) {score = 15;}
                             }
                         }
                         // Create a fake URI for the folder
@@ -376,8 +378,8 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                         .filter(x => x.score > 0)
                         .filter(x => !x.path.includes('.bytecoder') && !x.path.includes('.git') && !x.path.includes('node_modules'))
                         .sort((a, b) => {
-                            if (a.score !== b.score) return b.score - a.score;
-                            if (a.path.length !== b.path.length) return a.path.length - b.path.length;
+                            if (a.score !== b.score) {return b.score - a.score;}
+                            if (a.path.length !== b.path.length) {return a.path.length - b.path.length;}
                             return a.path.localeCompare(b.path);
                         })
                         .slice(0, 50)
@@ -508,7 +510,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     }
 
     private async handleRegenerate(index?: number) {
-        if (this._history.length === 0) return;
+        if (this._history.length === 0) {return;}
 
         // If index is provided, we need to remove everything from that index onwards
         // But we need to find the user message before it to re-run
@@ -518,7 +520,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
 
         if (index !== undefined) {
             // Validate index
-            if (index < 0 || index >= this._history.length) return;
+            if (index < 0 || index >= this._history.length) {return;}
 
             const msg = this._history[index];
             if (msg.role === 'assistant') {
@@ -557,8 +559,8 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     }
 
     private async handleEditMessage(index: number) {
-        if (this._history.length === 0) return;
-        if (index < 0 || index >= this._history.length) return;
+        if (this._history.length === 0) {return;}
+        if (index < 0 || index >= this._history.length) {return;}
 
         const msg = this._history[index];
         if (msg.role === 'user') {
@@ -581,7 +583,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     }
 
     private async handleUserMessage(message: string, files: any[] = [], commands: any[] = [], shouldUpdateView: boolean = false) {
-        if (!this._view) return;
+        if (!this._view) {return;}
 
         try {
             this._view?.webview.postMessage({ type: 'agentStatusReset' });
@@ -610,7 +612,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             if (files && files.length > 0) {
                 let fileContextBlock = "\n\n--- ATTACHED FILES ---\n";
                 for (const f of files) {
-                    if (f.isFolder) continue;
+                    if (f.isFolder) {continue;}
 
                     try {
                         let uri: vscode.Uri;
@@ -780,9 +782,9 @@ export class ChatPanel implements vscode.WebviewViewProvider {
 
             // === AGENTIC EXECUTION ===
             // Parse AI response for executable instructions
-            console.log('[ByteCoder] Parsing AI response for actions...');
+                Logger.log('[ByteCoder] Parsing AI response for actions...');
             const instructions = this._agentOrchestrator.parseAIResponse(fullResponse, detectedPersona);
-            console.log('[ByteCoder] Found instructions:', instructions.length);
+                Logger.log('[ByteCoder] Found instructions:', instructions.length);
 
             // If we have instructions, we are NOT done yet. 
             // Send isStream: true to keep the UI in generating state.
@@ -792,7 +794,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
 
             if (hasInstructions) {
                 // Log what we found
-                console.log('[ByteCoder] Instructions details:', JSON.stringify(instructions, null, 2));
+                Logger.log('[ByteCoder] Instructions details:', JSON.stringify(instructions, null, 2));
 
                 this._view?.webview.postMessage({
                     type: 'agentStatus',
@@ -824,7 +826,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
 
                 if (autoExecute && isSafe) {
                     // Auto-execute safe actions without confirmation
-                    console.log('[ByteCoder] Auto-executing safe actions...');
+                    Logger.log('[ByteCoder] Auto-executing safe actions...');
                     const result = await this._agentOrchestrator.executeInstructions(
                         instructions,
                         (progress) => {
@@ -850,7 +852,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     await this.promptForExecution(instructions, fullResponse);
                 }
             } else {
-                console.log('[ByteCoder] No executable actions found in response');
+                Logger.log('[ByteCoder] No executable actions found in response');
                 // No instructions, so ensure stream prevents processing
                 this._view?.webview.postMessage({ type: 'addResponse', value: fullResponse, isStream: false });
             }
@@ -897,7 +899,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             sessions.unshift(sessionData);
         }
 
-        while (sessions.length > 20) sessions.pop(); // Limit to 20
+        while (sessions.length > 20) {sessions.pop();} // Limit to 20
         await this._context.globalState.update('byteAI_sessions', sessions);
     }
 
@@ -931,7 +933,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         sessions = sessions.filter(s => s.id !== id);
         await this._context.globalState.update('byteAI_sessions', sessions);
         await this.getSessions();
-        if (id === this._currentSessionId) this.handleNewChat();
+        if (id === this._currentSessionId) {this.handleNewChat();}
     }
 
     private async renameSession(id: string, currentTitle: string) {
@@ -1067,13 +1069,13 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     private async promptForExecution(instructions: any[], fullResponse: string) {
         // Build preview
         const preview = instructions.map(i => {
-            if (i.type === 'create_file') return `📝 Create: ${i.path}`;
-            if (i.type === 'create_folder') return `📁 Create dir: ${i.path}`;
-            if (i.type === 'run_command') return `🔧 Run: ${i.command}`;
+            if (i.type === 'create_file') {return `📝 Create: ${i.path}`;}
+            if (i.type === 'create_folder') {return `📁 Create dir: ${i.path}`;}
+            if (i.type === 'run_command') {return `🔧 Run: ${i.command}`;}
             return `${i.type}: ${i.path || i.command}`;
         }).join('\n');
 
-        console.log('[ByteCoder] Prompting for execution:', preview);
+        Logger.log('[ByteCoder] Prompting for execution:', preview);
 
         const choice = await vscode.window.showInformationMessage(
             `Byte Coder wants to execute ${instructions.length} action(s):\n${preview.substring(0, 200)}`,
@@ -1082,7 +1084,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         );
 
         if (choice === 'Execute All') {
-            console.log('[ByteCoder] User approved execution');
+            Logger.log('[ByteCoder] User approved execution');
             const result = await this._agentOrchestrator.executeInstructions(
                 instructions,
                 (progress) => {
@@ -1111,7 +1113,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                 );
             }
         } else {
-            console.log('[ByteCoder] User cancelled execution');
+            Logger.log('[ByteCoder] User cancelled execution');
         }
     }
 }

@@ -145,7 +145,7 @@ export class VersionControllerAgent extends BaseAgent<VersionControllerInput, Ve
      * Uses index.json if available for speed, otherwise falls back to scanning
      */
     private loadAllCheckpoints(): void {
-        if (!this.checkpointDir || !fs.existsSync(this.checkpointDir)) return;
+        if (!this.checkpointDir || !fs.existsSync(this.checkpointDir)) {return;}
 
         // Try loading from index first
         const indexPath = path.join(this.checkpointDir, 'index.json');
@@ -255,7 +255,7 @@ export class VersionControllerAgent extends BaseAgent<VersionControllerInput, Ve
         let deletedCount = 0;
         for (const cp of toDelete) {
             const res = this.deleteCheckpoint(cp.checkpointId);
-            if (res.success) deletedCount++;
+            if (res.success) {deletedCount++;}
         }
         
         return {
@@ -359,7 +359,7 @@ export class VersionControllerAgent extends BaseAgent<VersionControllerInput, Ve
 
         for (const file of filesToDiff) {
             const oldContent = snapshots.get(file);
-            if (oldContent === undefined) continue;
+            if (oldContent === undefined) {continue;}
 
             try {
                 let newContent = '';
@@ -587,7 +587,7 @@ export class VersionControllerAgent extends BaseAgent<VersionControllerInput, Ve
     }
 
     private saveIndex(checkpoints: Checkpoint[]): void {
-        if (!this.checkpointDir) return;
+        if (!this.checkpointDir) {return;}
         try {
             const indexPath = path.join(this.checkpointDir, 'index.json');
             fs.writeFileSync(indexPath, JSON.stringify(checkpoints, null, 2));
@@ -604,7 +604,7 @@ export class VersionControllerAgent extends BaseAgent<VersionControllerInput, Ve
         checkpoint: Checkpoint,
         snapshots: Map<string, string>
     ): Promise<void> {
-        if (!this.checkpointDir) return;
+        if (!this.checkpointDir) {return;}
 
         try {
             // Compress snapshots
@@ -652,7 +652,7 @@ export class VersionControllerAgent extends BaseAgent<VersionControllerInput, Ve
         const allCheckpoints = Array.from(this.checkpoints.values())
             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-        if (allCheckpoints.length <= MAX_COUNT) return;
+        if (allCheckpoints.length <= MAX_COUNT) {return;}
 
         const now = Date.now();
         const toDelete: string[] = [];
@@ -678,11 +678,11 @@ export class VersionControllerAgent extends BaseAgent<VersionControllerInput, Ve
      * Load checkpoint from disk (supports v1 plain and v2 compressed)
      */
     private async loadCheckpoint(id: string): Promise<boolean> {
-        if (!this.checkpointDir) return false;
+        if (!this.checkpointDir) {return false;}
 
         try {
             const filePath = path.join(this.checkpointDir, `${id}.json`);
-            if (!fs.existsSync(filePath)) return false;
+            if (!fs.existsSync(filePath)) {return false;}
 
             const fileContent = fs.readFileSync(filePath, 'utf8');
             const data = JSON.parse(fileContent);
@@ -733,7 +733,7 @@ export class VersionControllerAgent extends BaseAgent<VersionControllerInput, Ve
      */
     getLatestCheckpoint(): Checkpoint | undefined {
         const checkpoints = Array.from(this.checkpoints.values());
-        if (checkpoints.length === 0) return undefined;
+        if (checkpoints.length === 0) {return undefined;}
         return checkpoints.sort((a, b) =>
             new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
         )[0];

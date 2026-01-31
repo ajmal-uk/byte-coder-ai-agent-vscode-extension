@@ -279,8 +279,8 @@ export const CONFIDENCE_THRESHOLDS = {
 } as const;
 
 export function getDecisionAction(confidence: number): 'proceed' | 'verify' | 'discover' | 'handoff' {
-    if (confidence > CONFIDENCE_THRESHOLDS.PROCEED) return 'proceed';
-    if (confidence >= CONFIDENCE_THRESHOLDS.VERIFY) return 'verify';
-    if (confidence >= CONFIDENCE_THRESHOLDS.DISCOVER) return 'discover';
+    if (confidence > CONFIDENCE_THRESHOLDS.PROCEED) {return 'proceed';}
+    if (confidence >= CONFIDENCE_THRESHOLDS.VERIFY) {return 'verify';}
+    if (confidence >= CONFIDENCE_THRESHOLDS.DISCOVER) {return 'discover';}
     return 'handoff';
 }

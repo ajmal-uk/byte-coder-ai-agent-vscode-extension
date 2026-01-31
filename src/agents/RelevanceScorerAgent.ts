@@ -187,7 +187,7 @@ export class RelevanceScorerAgent {
      * Score based on position (earlier chunks slightly preferred)
      */
     private scorePosition(index: number, total: number): number {
-        if (total <= 1) return 5;
+        if (total <= 1) {return 5;}
         // Higher score for earlier chunks
         return 5 * (1 - index / total);
     }
@@ -196,7 +196,7 @@ export class RelevanceScorerAgent {
      * Calculate overall file score
      */
     private calculateOverallScore(chunks: ScoredChunk[], fileMatch?: FileMatch): number {
-        if (chunks.length === 0) return 0;
+        if (chunks.length === 0) {return 0;}
 
         // Sum of chunk scores with diminishing returns
         let totalScore = 0;
@@ -244,7 +244,7 @@ export class RelevanceScorerAgent {
         let totalChars = 0;
 
         for (const result of results) {
-            if (totalChars >= this.MAX_TOTAL_CHARS) break;
+            if (totalChars >= this.MAX_TOTAL_CHARS) {break;}
 
             const selectedChunks: ScoredChunk[] = [];
             let fileChars = 0;

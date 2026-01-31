@@ -146,7 +146,7 @@ export class FilePartSearcherAgent extends BaseAgent<FilePartSearchInput, FilePa
         const matches: FilePartMatch[] = [];
         const index = lineNumber - 1;
 
-        if (index < 0 || index >= lines.length) return matches;
+        if (index < 0 || index >= lines.length) {return matches;}
 
         // Try to find if this line starts a block
         const blockEnd = this.findBlockEnd(lines, index, filePath);
@@ -420,12 +420,12 @@ export class FilePartSearcherAgent extends BaseAgent<FilePartSearchInput, FilePa
                 
                 // Check for braces/parens
                 if (char === '{' || char === '(') {
-                    if (char === '{') braceCount++;
-                    if (char === '(') parenCount++;
+                    if (char === '{') {braceCount++;}
+                    if (char === '(') {parenCount++;}
                     started = true;
                 } else if (char === '}' || char === ')') {
-                    if (char === '}') braceCount--;
-                    if (char === ')') parenCount--;
+                    if (char === '}') {braceCount--;}
+                    if (char === ')') {parenCount--;}
                 }
                 
                 // Check for semicolon (statement end)
@@ -454,7 +454,7 @@ export class FilePartSearcherAgent extends BaseAgent<FilePartSearchInput, FilePa
      * Enhanced to handle multi-line expressions (parentheses/brackets)
      */
     private findBlockEndPython(lines: string[], startLine: number): number {
-        if (startLine >= lines.length) return startLine;
+        if (startLine >= lines.length) {return startLine;}
 
         // Get base indentation of the start line
         const startLineContent = lines[startLine];
@@ -514,8 +514,8 @@ export class FilePartSearcherAgent extends BaseAgent<FilePartSearchInput, FilePa
                 }
                 
                 // Parens
-                if (char === '(' || char === '[' || char === '{') openParens++;
-                if (char === ')' || char === ']' || char === '}') openParens--;
+                if (char === '(' || char === '[' || char === '{') {openParens++;}
+                if (char === ')' || char === ']' || char === '}') {openParens--;}
             }
         };
 
@@ -653,13 +653,13 @@ export class FilePartSearcherAgent extends BaseAgent<FilePartSearchInput, FilePa
      * Detect element type from a line of code
      */
     private detectElementType(line: string): string {
-        if (/\bfunction\b|\bdef\b/.test(line)) return 'function';
-        if (/\bclass\b/.test(line)) return 'class';
-        if (/\binterface\b/.test(line)) return 'interface';
-        if (/\bconst\b.*=.*=>/.test(line)) return 'arrow_function';
-        if (/\bconst\b|\blet\b|\bvar\b/.test(line)) return 'variable';
-        if (/<\w+/.test(line)) return 'jsx_element';
-        if (/^import\b|from\b.*import\b/.test(line.trim())) return 'import';
+        if (/\bfunction\b|\bdef\b/.test(line)) {return 'function';}
+        if (/\bclass\b/.test(line)) {return 'class';}
+        if (/\binterface\b/.test(line)) {return 'interface';}
+        if (/\bconst\b.*=.*=>/.test(line)) {return 'arrow_function';}
+        if (/\bconst\b|\blet\b|\bvar\b/.test(line)) {return 'variable';}
+        if (/<\w+/.test(line)) {return 'jsx_element';}
+        if (/^import\b|from\b.*import\b/.test(line.trim())) {return 'import';}
         return 'unknown';
     }
 
@@ -670,7 +670,7 @@ export class FilePartSearcherAgent extends BaseAgent<FilePartSearchInput, FilePa
         const seen = new Set<string>();
         return matches.filter(match => {
             const key = `${match.file}:${match.startLine}-${match.endLine}`;
-            if (seen.has(key)) return false;
+            if (seen.has(key)) {return false;}
             seen.add(key);
             return true;
         });

@@ -382,32 +382,32 @@ To provide the most relevant context to other agents so they can perform their t
         const lowerQuery = query.toLowerCase();
 
         // 1. Check for explicit role requests
-        if (lowerQuery.includes('as a backend')) return 'BackendSpecialist';
-        if (lowerQuery.includes('as a frontend')) return 'FrontendSpecialist';
-        if (lowerQuery.includes('as a devops')) return 'DevOpsEngineer';
-        if (lowerQuery.includes('as an architect')) return 'SystemArchitect';
-        if (lowerQuery.includes('as a qa') || lowerQuery.includes('as a tester')) return 'QAEngineer';
-        if (lowerQuery.includes('as a debugger')) return 'Debugger';
-        if (lowerQuery.includes('as a security')) return 'SecurityAuditor';
-        if (lowerQuery.includes('as a game dev')) return 'GameDeveloper';
-        if (lowerQuery.includes('as a data scientist') || lowerQuery.includes('as a ml engineer')) return 'DataScientist';
+        if (lowerQuery.includes('as a backend')) {return 'BackendSpecialist';}
+        if (lowerQuery.includes('as a frontend')) {return 'FrontendSpecialist';}
+        if (lowerQuery.includes('as a devops')) {return 'DevOpsEngineer';}
+        if (lowerQuery.includes('as an architect')) {return 'SystemArchitect';}
+        if (lowerQuery.includes('as a qa') || lowerQuery.includes('as a tester')) {return 'QAEngineer';}
+        if (lowerQuery.includes('as a debugger')) {return 'Debugger';}
+        if (lowerQuery.includes('as a security')) {return 'SecurityAuditor';}
+        if (lowerQuery.includes('as a game dev')) {return 'GameDeveloper';}
+        if (lowerQuery.includes('as a data scientist') || lowerQuery.includes('as a ml engineer')) {return 'DataScientist';}
 
         // 2. Use Intent Analysis
-        if (intent === 'Design') return 'SystemArchitect';
-        if (intent === 'Audit') return 'SecurityAuditor';
-        if (intent === 'VersionControl') return 'DevOpsEngineer';
-        if (intent === 'Fix') return 'Debugger';
+        if (intent === 'Design') {return 'SystemArchitect';}
+        if (intent === 'Audit') {return 'SecurityAuditor';}
+        if (intent === 'VersionControl') {return 'DevOpsEngineer';}
+        if (intent === 'Fix') {return 'Debugger';}
 
         // 3. Keyword Matching
         let maxScore = 0;
         let bestPersona: PersonaType = 'Generalist';
 
         for (const [key, persona] of Object.entries(this.personas)) {
-            if (key === 'Generalist') continue;
+            if (key === 'Generalist') {continue;}
             
             let score = 0;
             for (const keyword of persona.keywords) {
-                if (lowerQuery.includes(keyword)) score++;
+                if (lowerQuery.includes(keyword)) {score++;}
             }
 
             if (score > maxScore) {
@@ -429,7 +429,7 @@ To provide the most relevant context to other agents so they can perform their t
          */
         public validateInstruction(persona: PersonaType, instructionType: string, filePath?: string): { valid: boolean; reason?: string } {
             // Generalist can do anything
-            if (persona === 'Generalist') return { valid: true };
+            if (persona === 'Generalist') {return { valid: true };}
 
             // CodeArchaeologist should not delete files
             if (persona === 'CodeArchaeologist' && instructionType === 'delete_file') {

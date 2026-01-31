@@ -97,22 +97,22 @@ export class ContextAnalyzer extends BaseAgent<ContextAnalyzerInput, AnalyzedCon
                     const absolutePath = path.resolve(fileDir, importPath);
                     
                     // 1. Check if exact path exists in our file map
-                    if (files.has(absolutePath)) return absolutePath;
+                    if (files.has(absolutePath)) {return absolutePath;}
 
                     // 2. Check common extensions
                     const extensions = ['.ts', '.tsx', '.js', '.jsx', '.json', '.py'];
                     for (const ext of extensions) {
                         const withExt = absolutePath + ext;
-                        if (files.has(withExt)) return withExt;
+                        if (files.has(withExt)) {return withExt;}
                         // Also check disk if not in map (optional, but good for completeness)
-                        if (fs.existsSync(withExt)) return withExt;
+                        if (fs.existsSync(withExt)) {return withExt;}
                     }
 
                     // 3. Check for directory index files
                     for (const ext of extensions) {
                         const indexWithExt = path.join(absolutePath, 'index' + ext);
-                        if (files.has(indexWithExt)) return indexWithExt;
-                        if (fs.existsSync(indexWithExt)) return indexWithExt;
+                        if (files.has(indexWithExt)) {return indexWithExt;}
+                        if (fs.existsSync(indexWithExt)) {return indexWithExt;}
                     }
 
                     return absolutePath;
@@ -154,13 +154,13 @@ export class ContextAnalyzer extends BaseAgent<ContextAnalyzerInput, AnalyzedCon
                     const absolutePath = path.resolve(searchDir, relativePath);
 
                     // Check file.py
-                    if (files.has(absolutePath + '.py')) return absolutePath + '.py';
-                    if (fs.existsSync(absolutePath + '.py')) return absolutePath + '.py';
+                    if (files.has(absolutePath + '.py')) {return absolutePath + '.py';}
+                    if (fs.existsSync(absolutePath + '.py')) {return absolutePath + '.py';}
 
                     // Check file/__init__.py
                     const initPath = path.join(absolutePath, '__init__.py');
-                    if (files.has(initPath)) return initPath;
-                    if (fs.existsSync(initPath)) return initPath;
+                    if (files.has(initPath)) {return initPath;}
+                    if (fs.existsSync(initPath)) {return initPath;}
 
                     return absolutePath;
                 }
@@ -171,12 +171,12 @@ export class ContextAnalyzer extends BaseAgent<ContextAnalyzerInput, AnalyzedCon
                 const relativePath = path.join(...parts);
                 const localPath = path.resolve(fileDir, relativePath);
 
-                if (files.has(localPath + '.py')) return localPath + '.py';
-                if (fs.existsSync(localPath + '.py')) return localPath + '.py';
+                if (files.has(localPath + '.py')) {return localPath + '.py';}
+                if (fs.existsSync(localPath + '.py')) {return localPath + '.py';}
                 
                 const localInitPath = path.join(localPath, '__init__.py');
-                if (files.has(localInitPath)) return localInitPath;
-                if (fs.existsSync(localInitPath)) return localInitPath;
+                if (files.has(localInitPath)) {return localInitPath;}
+                if (fs.existsSync(localInitPath)) {return localInitPath;}
 
                 return importPath;
             };
@@ -411,10 +411,10 @@ export class ContextAnalyzer extends BaseAgent<ContextAnalyzerInput, AnalyzedCon
 
     private determineChunkType(firstLine: string): ContextChunk['type'] {
         const t = firstLine.trim().toLowerCase();
-        if (t.includes('class ')) return 'class';
-        if (t.includes('function ') || t.includes('def ')) return 'function';
-        if (t.includes('import ') || t.includes('from ')) return 'import';
-        if (t.includes('export ')) return 'export';
+        if (t.includes('class ')) {return 'class';}
+        if (t.includes('function ') || t.includes('def ')) {return 'function';}
+        if (t.includes('import ') || t.includes('from ')) {return 'import';}
+        if (t.includes('export ')) {return 'export';}
         return 'block';
     }
 

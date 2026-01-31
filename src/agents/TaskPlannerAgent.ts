@@ -84,7 +84,7 @@ export class TaskPlannerAgent extends BaseAgent<TaskPlannerInput, TaskPlannerRes
             );
 
             const tasks = this.parseTaskResponse(response);
-            if (tasks.length > 0) return tasks;
+            if (tasks.length > 0) {return tasks;}
             
             return this.generateFallbackTask(input);
         } catch (error) {
@@ -184,7 +184,7 @@ Return a JSON array of task objects. NO markdown formatting.
      * Recursively decompose tasks marked as 'complex' into sub-tasks
      */
     private async recursiveDecomposition(tasks: TaskNode[], input: TaskPlannerInput, depth: number = 0): Promise<TaskNode[]> {
-        if (depth > 2) return tasks;
+        if (depth > 2) {return tasks;}
 
         const resultTasks: TaskNode[] = [];
 
@@ -378,8 +378,8 @@ Rules:
         const order: string[] = [];
 
         const visit = (nodeId: string) => {
-            if (temp.has(nodeId)) return; // Cycle detected, ignore
-            if (visited.has(nodeId)) return;
+            if (temp.has(nodeId)) {return;} // Cycle detected, ignore
+            if (visited.has(nodeId)) {return;}
 
             temp.add(nodeId);
 
@@ -416,7 +416,7 @@ Rules:
 
         for (const nodeId of executionOrder) {
             const node = graph.find(n => n.id === nodeId);
-            if (!node) continue;
+            if (!node) {continue;}
 
             let currentMax = 0;
             let currentPred = '';

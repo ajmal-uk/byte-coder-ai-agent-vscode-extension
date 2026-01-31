@@ -259,7 +259,7 @@ export class VisionAgent extends BaseAgent<VisionInput, VisionResult> {
     private calculateContrastRatio(color1: string, color2: string): number {
         const getLuminance = (hex: string): number => {
             const rgb = this.hexToRgb(hex);
-            if (!rgb) return 0;
+            if (!rgb) {return 0;}
 
             const [r, g, b] = [rgb.r, rgb.g, rgb.b].map(c => {
                 c = c / 255;

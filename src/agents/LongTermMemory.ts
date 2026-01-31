@@ -258,7 +258,7 @@ export class LongTermMemory {
             }
 
             // Boost if many terms match
-            if (matches >= queryTerms.length && queryTerms.length > 0) score += 30;
+            if (matches >= queryTerms.length && queryTerms.length > 0) {score += 30;}
 
             // Recency boost
             const daysSince = (Date.now() - memory.timestamp) / (1000 * 60 * 60 * 24);
@@ -304,11 +304,11 @@ export class LongTermMemory {
         const queryLower = query.toLowerCase();
 
         for (const session of sessions) {
-            if (!session.history) continue;
+            if (!session.history) {continue;}
 
             for (const msg of session.history) {
                 // Skip assistant messages if short/generic, but keep user messages and long assistant explanations
-                if (msg.role === 'assistant' && msg.text.length < 50) continue;
+                if (msg.role === 'assistant' && msg.text.length < 50) {continue;}
 
                 const content = msg.text?.toLowerCase() || '';
                 let score = 0;
@@ -354,7 +354,7 @@ export class LongTermMemory {
                 seenContent.add(signature);
                 uniqueResults.push(r);
             }
-            if (uniqueResults.length >= 5) break;
+            if (uniqueResults.length >= 5) {break;}
         }
 
         return uniqueResults.map(r => `[From "${r.sessionTitle}"]: ${r.content}`);
@@ -386,7 +386,7 @@ export class LongTermMemory {
      * Build a context string from memories
      */
     private buildContextString(memories: MemoryEntry[], query: string): string {
-        if (memories.length === 0) return '';
+        if (memories.length === 0) {return '';}
 
         const lines = ['\n--- REMEMBERED INFORMATION ---'];
 

@@ -44,7 +44,7 @@ export class TodoManagerAgent extends BaseAgent<TodoManagerInput, TodoManagerOut
         };
 
         const alternatives = strategies[originalStrategy];
-        if (!alternatives) return null;
+        if (!alternatives) {return null;}
 
         // attemptCount starts at 1 (original failure). attemptCount 1 = index 0 (first alternative).
         const index = attemptCount - 1;
@@ -205,7 +205,7 @@ export class TodoManagerAgent extends BaseAgent<TodoManagerInput, TodoManagerOut
         } else {
             // Filter runnable tasks
             const runnableTasks = pendingTasks.filter(task => {
-                if (task.dependencies.length === 0) return true;
+                if (task.dependencies.length === 0) {return true;}
                 return task.dependencies.every(depId => {
                     const depTask = updatedPlan.find(t => t.id === depId);
                     return depTask?.status === 'completed';
@@ -214,7 +214,7 @@ export class TodoManagerAgent extends BaseAgent<TodoManagerInput, TodoManagerOut
 
             if (runnableTasks.length > 0) {
                 nextTaskId = runnableTasks[0].id;
-                if (action !== 'retry') action = 'continue';
+                if (action !== 'retry') {action = 'continue';}
                 reasoning += ` Next task: ${runnableTasks[0].description}`;
             } else {
                 // Deadlock check: Pending tasks exist but dependencies not met

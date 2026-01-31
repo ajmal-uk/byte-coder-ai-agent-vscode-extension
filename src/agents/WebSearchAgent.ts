@@ -1,9 +1,9 @@
 
 import { BaseAgent, AgentOutput } from '../core/AgentTypes';
-import * as child_process from 'child_process';
+import * as childProcess from 'child_process';
 import * as util from 'util';
 
-const exec = util.promisify(child_process.exec);
+const exec = util.promisify(childProcess.exec);
 
 export interface WebSearchInput {
     query: string;
@@ -78,8 +78,8 @@ export class WebSearchAgent extends BaseAgent<WebSearchInput, WebSearchResult> {
         const cleanQ = q.replace(/search|web|for|find|look|up|check/g, '').trim();
 
         // Package managers
-        if (q.includes('npm') || (input.type === 'package' && !q.includes('pip'))) return 'npm';
-        if (q.includes('pip') || (input.type === 'package' && q.includes('python'))) return 'pip';
+        if (q.includes('npm') || (input.type === 'package' && !q.includes('pip'))) {return 'npm';}
+        if (q.includes('pip') || (input.type === 'package' && q.includes('python'))) {return 'pip';}
 
         // Code patterns / How-to (Best for cheat.sh)
     // Check for languages or frameworks
@@ -123,7 +123,7 @@ private async searchWikipedia(query: string): Promise<WebSearchResult> {
         const contentData = JSON.parse(contentOut);
         
         const page = contentData.query?.pages?.[pageId];
-        if (!page) throw new Error('Failed to fetch page content');
+        if (!page) {throw new Error('Failed to fetch page content');}
         
         return {
             source: 'wikipedia',
@@ -218,7 +218,7 @@ private async searchWikipedia(query: string): Promise<WebSearchResult> {
         const cleanQuery = query.replace(/npm|install|package|info|search|about/g, '').trim();
         const pkg = cleanQuery.split(' ')[0]; // Take first word as package name
 
-        if (!pkg) throw new Error('No package name found');
+        if (!pkg) {throw new Error('No package name found');}
 
         const command = `npm view ${pkg} name description keywords repository.url homepage --json`;
         

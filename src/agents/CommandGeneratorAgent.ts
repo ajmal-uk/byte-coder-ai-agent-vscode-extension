@@ -62,9 +62,9 @@ export class CommandGeneratorAgent extends BaseAgent<CommandGeneratorInput, Comm
         super({ name: 'CommandGenerator', timeout: 5000 });
 
         const platform = os.platform();
-        if (platform === 'darwin') this.platform = 'darwin';
-        else if (platform === 'win32') this.platform = 'windows';
-        else this.platform = 'linux';
+        if (platform === 'darwin') {this.platform = 'darwin';}
+        else if (platform === 'win32') {this.platform = 'windows';}
+        else {this.platform = 'linux';}
     }
 
     async execute(input: CommandGeneratorInput): Promise<AgentOutput<CommandGeneratorResult>> {
@@ -183,7 +183,7 @@ export class CommandGeneratorAgent extends BaseAgent<CommandGeneratorInput, Comm
         // Construct shell-compatible command for fallback/script generation
         if (this.platform === 'windows') {
             const parts: string[] = [];
-            if (dir) parts.push(`if not exist "${escapedDir}" mkdir "${escapedDir}"`);
+            if (dir) {parts.push(`if not exist "${escapedDir}" mkdir "${escapedDir}"`);}
             
             if (content) {
                 if (content.includes('\n')) {
@@ -204,7 +204,7 @@ export class CommandGeneratorAgent extends BaseAgent<CommandGeneratorInput, Comm
         } else {
             // Unix
             const parts: string[] = [];
-            if (dir) parts.push(`mkdir -p "${escapedDir}"`);
+            if (dir) {parts.push(`mkdir -p "${escapedDir}"`);}
             
             if (content) {
                 if (content.includes('\n')) {
@@ -412,7 +412,7 @@ export class CommandGeneratorAgent extends BaseAgent<CommandGeneratorInput, Comm
      */
     private isInteractive(command: string, context?: string): boolean {
         const matchesPattern = this.INTERACTIVE_PATTERNS.some(pattern => pattern.test(command));
-        if (matchesPattern) return true;
+        if (matchesPattern) {return true;}
 
         if (context) {
             const lowerContext = context.toLowerCase();

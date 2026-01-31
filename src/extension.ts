@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
 import { ChatPanel } from './ChatViewProvider';
+import { Logger } from './core/Logger';
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('Byte AI Coding Assistant is now active!');
+    Logger.initialize('Byte Coder AI');
+    Logger.info('Byte AI Coding Assistant is now active!');
 
     const provider = new ChatPanel(context.extensionUri, context);
 
