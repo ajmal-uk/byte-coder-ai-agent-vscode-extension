@@ -73,7 +73,7 @@ Most AI tools are passive text generators. **Byte Coder is an active agent.**
 
 ## 🛠️ Core Capabilities
 
-### 1. Autonomous Task Execution (New in v1.0.3)
+### 1. Autonomous Task Execution (New in v1.0.4)
 Byte Coder can handle complex requests like *"Create a React component for UserProfile and add it to the router"*:
 
 *   **Manager Agent**: Analyzes your request and determines the intent.
@@ -166,6 +166,22 @@ Customize Byte Coder in `Settings > Extensions > Byte Coder AI`:
 2.  Search for **"Byte Coder AI"**.
 3.  Click **Install**.
 4.  Open the Byte Coder sidebar icon to start.
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Whether it's a bug fix, a new feature, or documentation improvements.
+
+Please read our [Contributing Guidelines](CONTRIBUTING.md) to get started.
+
+---
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/ajmal-uk/byte-coder-ai-agent/issues)
+- **Sponsor**: [Buy Me a Coffee](https://www.buymeacoffee.com/ajmal.uk)
+- **Website**: [uthakkan.pythonanywhere.com](https://uthakkan.pythonanywhere.com)
 
 ---
 

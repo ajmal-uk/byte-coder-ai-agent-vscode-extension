@@ -2,7 +2,7 @@
     "name": "byte-coder-ai-agent",
     "displayName": "Byte Coder AI Agent - Autonomous Software Engineer",
     "description": "🚀 The Autonomous AI Software Engineer. Better than Copilot. Agentic AI coding assistant with multi-agent architecture. Features specialized sub-agents for Planning, Execution, and Verification. Understands your entire codebase, not just selected code. Premium glassmorphism UI with @ file mentions, / slash commands, and one-click actions.",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "publisher": "uthakkan",
     "icon": "images/logo.png",
     "galleryBanner": {

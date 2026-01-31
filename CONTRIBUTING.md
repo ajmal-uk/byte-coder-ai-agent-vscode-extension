@@ -27,6 +27,15 @@ src/
 
 ---
 
+## 📚 Knowledge Base Integration
+
+Since v1.0.2, Byte Coder includes an offline knowledge base (`data/knowledge/uthakkan_data.json`).
+- **Purpose**: Provides the agent with core identity rules and factual knowledge without needing online retrieval.
+- **Updating**: If you add significant features, consider if the agent needs to "know" about them in its static memory.
+- **Format**: JSON array of memory objects with `id`, `title`, `content`, and `keywords`.
+
+---
+
 ## 🛠️ How to Contribute
 
 ### 1. Fork & Clone

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.4] - 2026-01-31
+
+### ✨ Improvements
+- **Enhanced Documentation**: Redesigned README.md with a high-impact, full-width responsive image strip for better visual presentation.
+- **Dependency Security**: Updated all dependencies to their latest secure versions (resolved 5 moderate vulnerabilities in eslint).
+- **Layout Optimization**: Improved visual consistency across the documentation and extension metadata.
+- **Strict Quality Control**: Verified full project compilation and codebase integrity.
+
 ## [1.0.3] - 2026-01-31
 
 ### 🔄 Autonomous Agent Architecture Update

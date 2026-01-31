@@ -24,7 +24,7 @@ The extension relies on a sophisticated "Think-Act-Verify" ecosystem of speciali
     *   **Role**: The "Judge".
     *   **Function**: Ranks information to ensure optimal context usage.
 
-### 🛠️ Execution & Planning Layer (New in v1.0.3)
+### 🛠️ Execution & Planning Layer (New in v1.0.4)
 5.  **ManagerAgent** (`src/core/ManagerAgent.ts`)
     *   **Role**: The "Project Manager".
     *   **Function**: Oversees the entire task lifecycle, deciding when to plan, execute, or ask for clarification.
@@ -66,7 +66,7 @@ The extension relies on a sophisticated "Think-Act-Verify" ecosystem of speciali
 *   **Session Management**: Save, load, rename, and delete chat sessions.
 *   **File/Folder Tagging**: Clickable tags for files and folders, with support for direct navigation.
 
-### 2. Slash Commands
+### 3. Slash Commands
 Quick actions to perform common tasks:
 *   `/explain`: Explain the selected code or context.
 *   `/fix`: Fix bugs or errors in the code.
@@ -77,7 +77,7 @@ Quick actions to perform common tasks:
 *   `/security`: Check for security vulnerabilities.
 *   `/review`: Review code for best practices.
 
-### 3. Context Awareness
+### 4. Context Awareness
 *   **@ File Mentions**: Reference specific files in your chat to give the AI context.
 *   **Active Editor Integration**: The AI is aware of the code you are currently working on.
 *   **Clipboard & Insert**: Easily copy code or insert it directly into your editor.
