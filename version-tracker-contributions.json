@@ -1,0 +1,414 @@
+{
+  "contributes": {
+    "views": {
+      "versionHistory": [
+        {
+          "name": "Version History",
+          "when": "workspaceHasVersionTracker"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "versionTracker.showHistory",
+        "title": "Show Version History",
+        "icon": "$(history)",
+        "category": "Version Tracker"
+      },
+      {
+        "command": "versionTracker.diffVersions",
+        "title": "Compare Versions",
+        "icon": "$(diff)",
+        "category": "Version Tracker"
+      },
+      {
+        "command": "versionTracker.revertVersion",
+        "title": "Revert to Version",
+        "icon": "$(discard)",
+        "category": "Version Tracker"
+      },
+      {
+        "command": "versionTracker.createSnapshot",
+        "title": "Create Snapshot",
+        "icon": "$(camera)",
+        "category": "Version Tracker"
+      },
+      {
+        "command": "versionTracker.toggleFileTracking",
+        "title": "Track File",
+        "icon": "$(bookmark)",
+        "category": "Version Tracker"
+      },
+      {
+        "command": "versionTracker.clearHistory",
+        "title": "Clear Version History",
+        "icon": "$(trash)",
+        "category": "Version Tracker"
+      },
+      {
+        "command": "versionTracker.exportHistory",
+        "title": "Export Version History",
+        "icon": "$(export)",
+        "category": "Version Tracker"
+      },
+      {
+        "command": "versionTracker.compareVersions",
+        "title": "Advanced Compare",
+        "icon": "$(compare-changes)",
+        "category": "Version Tracker"
+      },
+      {
+        "command": "versionTracker.undo",
+        "title": "Undo",
+        "icon": "$(arrow-undo)",
+        "category": "Version Tracker"
+      },
+      {
+        "command": "versionTracker.redo",
+        "title": "Redo",
+        "icon": "$(arrow-redo)",
+        "category": "Version Tracker"
+      },
+      {
+        "command": "versionUI.toggleSidePanel",
+        "title": "Toggle Version Panel",
+        "icon": "$(output)",
+        "category": "Version Tracker"
+      },
+      {
+        "command": "versionUI.showInlineVersion",
+        "title": "Show Current Version",
+        "icon": "$(info)",
+        "category": "Version Tracker"
+      },
+      {
+        "command": "versionUI.quickRevert",
+        "title": "Quick Revert",
+        "icon": "$(discard)",
+        "category": "Version Tracker"
+      },
+      {
+        "command": "versionUI.quickCompare",
+        "title": "Quick Compare",
+        "icon": "$(diff-multiple)",
+        "category": "Version Tracker"
+      },
+      {
+        "command": "versionUI.createCheckpoint",
+        "title": "Create Checkpoint",
+        "icon": "$(camera)",
+        "category": "Version Tracker"
+      },
+      {
+        "command": "versionTracker.gitInit",
+        "title": "Initialize Git",
+        "icon": "$(git-branch)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.gitCommit",
+        "title": "Git Commit",
+        "icon": "$(git-commit)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.gitBranch",
+        "title": "Create Git Branch",
+        "icon": "$(git-branch-create)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.gitCheckout",
+        "title": "Git Checkout",
+        "icon": "$(git-branch)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.gitMerge",
+        "title": "Git Merge",
+        "icon": "$(git-merge)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.gitRebase",
+        "title": "Git Rebase",
+        "icon": "$(git-rebase)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.gitStash",
+        "title": "Git Stash",
+        "icon": "$(git-stash)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.gitStashPop",
+        "title": "Git Stash Pop",
+        "icon": "$(git-stash-pop)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.gitDiff",
+        "title": "Git Diff",
+        "icon": "$(git-diff)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.gitLog",
+        "title": "Git Log",
+        "icon": "$(git-log)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.gitStatus",
+        "title": "Git Status",
+        "icon": "$(git-status)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.gitPush",
+        "title": "Git Push",
+        "icon": "$(git-push)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.gitPull",
+        "title": "Git Pull",
+        "icon": "$(git-pull)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.gitReset",
+        "title": "Git Reset",
+        "icon": "$(git-refresh)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.gitRevert",
+        "title": "Git Revert",
+        "icon": "$(git-revert)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.gitTag",
+        "title": "Git Tag",
+        "icon": "$(git-tag)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.createBranchFromCheckpoint",
+        "title": "Branch from Checkpoint",
+        "icon": "$(git-branch-create)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.compareCheckpoints",
+        "title": "Compare Checkpoints",
+        "icon": "$(compare-changes)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.exportCheckpoint",
+        "title": "Export Checkpoint",
+        "icon": "$(export)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.importCheckpoint",
+        "title": "Import Checkpoint",
+        "icon": "$(import)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.syncWithGit",
+        "title": "Sync with Git",
+        "icon": "$(sync)",
+        "category": "Advanced Version Control"
+      },
+      {
+        "command": "versionTracker.resolveConflicts",
+        "title": "Resolve Conflicts",
+        "icon": "$(checklist)",
+        "category": "Advanced Version Control"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "versionUI.toggleSidePanel",
+          "when": "view == versionHistory",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "versionTracker.toggleFileTracking",
+          "when": "explorerResourceIsFile",
+          "group": "navigation@1"
+        },
+        {
+          "command": "versionTracker.revertVersion",
+          "when": "explorerResourceIsFile && workspaceHasVersionTracker",
+          "group": "navigation@2"
+        },
+        {
+          "command": "versionTracker.diffVersions",
+          "when": "explorerResourceIsFile && workspaceHasVersionTracker",
+          "group": "navigation@3"
+        },
+        {
+          "submenu": "versionTracker.more",
+          "group": "navigation@4",
+          "when": "explorerResourceIsFile && workspaceHasVersionTracker"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "versionUI.showInlineVersion",
+          "when": "editorHasSelection && workspaceHasVersionTracker",
+          "group": "navigation@1"
+        },
+        {
+          "command": "versionUI.quickRevert",
+          "when": "workspaceHasVersionTracker",
+          "group": "navigation@2"
+        },
+        {
+          "command": "versionUI.quickCompare",
+          "when": "workspaceHasVersionTracker",
+          "group": "navigation@3"
+        },
+        {
+          "command": "versionUI.createCheckpoint",
+          "when": "workspaceHasVersionTracker",
+          "group": "navigation@4"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "versionUI.quickRevert",
+          "when": "workspaceHasVersionTracker",
+          "group": "navigation@1"
+        },
+        {
+          "command": "versionUI.quickCompare",
+          "when": "workspaceHasVersionTracker",
+          "group": "navigation@2"
+        },
+        {
+          "command": "versionUI.createCheckpoint",
+          "when": "workspaceHasVersionTracker",
+          "group": "navigation@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "versionTracker.showHistory",
+          "when": "workspaceHasVersionTracker"
+        },
+        {
+          "command": "versionUI.toggleSidePanel",
+          "when": "workspaceHasVersionTracker"
+        },
+        {
+          "command": "versionTracker.createSnapshot",
+          "when": "workspaceHasVersionTracker"
+        },
+        {
+          "command": "versionTracker.clearHistory",
+          "when": "workspaceHasVersionTracker"
+        }
+      ],
+      "versionTracker.more": [
+        {
+          "label": "Advanced Git Actions",
+          "submenu": "versionTracker.gitActions",
+          "when": "explorerResourceIsFile && workspaceHasVersionTracker"
+        }
+      ],
+      "versionTracker.gitActions": [
+        {
+          "command": "versionTracker.gitCommit",
+          "when": "workspaceHasVersionTracker"
+        },
+        {
+          "command": "versionTracker.gitBranch",
+          "when": "workspaceHasVersionTracker"
+        },
+        {
+          "command": "versionTracker.gitCheckout",
+          "when": "workspaceHasVersionTracker"
+        },
+        {
+          "command": "versionTracker.gitMerge",
+          "when": "workspaceHasVersionTracker"
+        },
+        {
+          "command": "versionTracker.gitRebase",
+          "when": "workspaceHasVersionTracker"
+        },
+        {
+          "command": "versionTracker.gitStash",
+          "when": "workspaceHasVersionTracker"
+        },
+        {
+          "command": "versionTracker.gitPush",
+          "when": "workspaceHasVersionTracker"
+        },
+        {
+          "command": "versionTracker.gitPull",
+          "when": "workspaceHasVersionTracker"
+        },
+        {
+          "command": "versionTracker.gitReset",
+          "when": "workspaceHasVersionTracker"
+        },
+        {
+          "command": "versionTracker.gitRevert",
+          "when": "workspaceHasVersionTracker"
+        },
+        {
+          "command": "versionTracker.gitTag",
+          "when": "workspaceHasVersionTracker"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Version Tracker",
+      "properties": {
+        "versionTracker.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable real-time version tracking for files"
+        },
+        "versionTracker.maxVersions": {
+          "type": "number",
+          "default": 50,
+          "minimum": 10,
+          "maximum": 500,
+          "description": "Maximum number of versions to keep per file"
+        },
+        "versionTracker.autoSnapshot": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically create snapshots every 10 minutes"
+        },
+        "versionTracker.showInlineVersion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show current version information inline with files"
+        },
+        "versionTracker.showSidePanel": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show version history side panel"
+        },
+        "versionTracker.trackExtensions": {
+          "type": "array",
+          "default": [".ts", ".js", ".jsx", ".tsx", ".py", ".java", ".cpp", ".c", ".h", ".html", ".css", ".md"],
+          "description": "File extensions to track for version control"
+        }
+      }
+    }
+  }
+}

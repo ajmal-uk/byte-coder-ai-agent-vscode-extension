@@ -170,6 +170,7 @@ export class AgentOrchestrator {
                         }
                     } catch (recError) {
                         // Recovery failed
+                        console.error(`[AgentOrchestrator] Recovery failed for task ${task.id}:`, recError);
                     }
                     return { taskId: task.id, success: false, error };
                 }
@@ -225,6 +226,8 @@ export class AgentOrchestrator {
                      command: task.validationCommand,
                      cwd: this.workspaceRoot
                   });
+             } else {
+                 throw new Error(`Task ${task.id} (Executor) has no command or validationCommand to run.`);
              }
         } else if (agentName === 'CodeModifier') {
              // Redirect CodeModifier tasks to CodeGenerator for now, as CodeModifier requires precise diffs
@@ -314,24 +317,39 @@ export class AgentOrchestrator {
      */
     public parseAIResponse(response: string, persona: PersonaType): AgenticAction[] {
         const actions: AgenticAction[] = [];
-        // Regex to capture content inside <byte_action> tags
-        // Handles multiline content with [\s\S]*?
-        const regex = /<byte_action\s+type="([^"]+)"(?:\s+path="([^"]+)")?(?:\s+command="([^"]+)")?>([\s\S]*?)<\/byte_action>/g;
+        
+        // Improved regex to be more robust with attributes
+        // Matches <byte_action attributes...>content</byte_action>
+        const tagRegex = /<byte_action\s+([^>]+)>([\s\S]*?)<\/byte_action>/g;
         
         let match;
-        while ((match = regex.exec(response)) !== null) {
-            const [fullMatch, type, pathAttr, commandAttr, content] = match;
+        while ((match = tagRegex.exec(response)) !== null) {
+            const [_, attributesStr, content] = match;
             
-            // Clean up content (remove leading/trailing whitespace/newlines)
-            const cleanContent = content ? content.trim() : '';
+            // Extract attributes
+            const typeMatch = attributesStr.match(/type=["']([^"']+)["']/);
+            const pathMatch = attributesStr.match(/path=["']([^"']+)["']/);
+            const commandMatch = attributesStr.match(/command=["']([^"']+)["']/);
             
-            actions.push({
-                type: type as any,
-                path: pathAttr,
-                command: commandAttr,
-                content: cleanContent,
-                description: `${type} ${pathAttr || commandAttr || ''}`
-            });
+            const type = typeMatch ? typeMatch[1] : null;
+            
+            if (type) {
+                // Clean up content (remove leading/trailing whitespace/newlines)
+                let cleanContent = content ? content.trim() : '';
+                
+                // Remove CDATA if present
+                if (cleanContent.startsWith('<![CDATA[') && cleanContent.endsWith(']]>')) {
+                    cleanContent = cleanContent.substring(9, cleanContent.length - 3);
+                }
+
+                actions.push({
+                    type: type as any,
+                    path: pathMatch ? pathMatch[1] : undefined,
+                    command: commandMatch ? commandMatch[1] : undefined,
+                    content: cleanContent,
+                    description: `${type} ${pathMatch?.[1] || commandMatch?.[1] || ''}`
+                });
+            }
         }
         
         return actions;

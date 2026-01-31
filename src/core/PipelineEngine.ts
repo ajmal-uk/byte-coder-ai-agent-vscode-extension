@@ -45,6 +45,7 @@ export interface PipelineContext {
     checkpoints: Checkpoint[];
     startTime: number;
     currentPlan?: TaskNode[];
+    retryCount?: number;
 }
 
 type StatusCallback = (status: PipelineStatus) => void;
@@ -184,9 +185,9 @@ export class PipelineEngine {
                  if (qaResult && qaResult.status === 'success' && qaResult.payload && !qaResult.payload.passed) {
                      // QA failed (logical failure)
                         // Check retry count
-                        const retryCount = (context as any).retryCount || 0;
+                        const retryCount = context.retryCount || 0;
                         if (retryCount < 3) {
-                            (context as any).retryCount = retryCount + 1;
+                            context.retryCount = retryCount + 1;
                             
                             const qaIssues = (qaResult.payload.issues || []).map((i: any) => i.description).join('; ');
                             

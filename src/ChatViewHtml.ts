@@ -16,7 +16,7 @@ export class ChatViewHtml {
             <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
             <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-            <style>
+        <style>
                 :root {
                     /* Base Colors */
                     --bg-app: var(--vscode-sideBar-background);
@@ -75,12 +75,29 @@ export class ChatViewHtml {
                     --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
                 }
 
+                /* Layout: Left Todo Panel + Right Chat Area */
+                .layout { display: flex; height: 100%; }
+                .todo-panel { width: 320px; border-right: 1px solid var(--border); background: var(--bg-card); padding: 12px; overflow: auto; }
+                .chat-panel { flex: 1; display: flex; flex-direction: column; height: 100%; }
+                .todo-title { font-weight: 600; font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+                .todo-list { display: flex; flex-direction: column; gap: 8px; }
+                .todo-item { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: rgba(0,0,0,0.04); }
+                .todo-item.completed { opacity: .6; text-decoration: line-through; }
+                .todo-item .check { width: 14px; height: 14px; border: 2px solid var(--border); border-radius: 3px; display: inline-block; cursor: pointer; }
+                .todo-item .title { flex: 1; font-size: 13px; }
+                .todo-item .actions { display: flex; gap: 6px; }
+                .todo-input { display: flex; gap: 6px; margin-top: 8px; }
+                .todo-input input { flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text-primary); }
+                .todo-input button { padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-hover); color: var(--text-primary); cursor: pointer; }
+                /* Chat header remains visible on the right */
+                #chat-container { position: relative; }
+
                 /* Body & Global Reset */
                 *, *:before, *:after {
                     box-sizing: border-box;
                 }
 
-                body {
+        body {
                     margin: 0; padding: 0;
                     background: var(--bg-app);
                     color: var(--text-primary);
@@ -91,6 +108,9 @@ export class ChatViewHtml {
                     line-height: 1.5;
                     -webkit-font-smoothing: antialiased;
                 }
+
+                /* Layout wrapper for To-dos and Chat */
+        
 
                 /* Custom Scrollbar */
                 ::-webkit-scrollbar { width: 6px; height: 6px; }

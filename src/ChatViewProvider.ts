@@ -767,7 +767,12 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                 this._view?.webview.postMessage({ type: 'addResponse', value: fullResponse, isStream: true });
             }, (err) => {
                 this._view?.webview.postMessage({ type: 'error', value: err.message });
+                throw err; // Re-throw to stop execution
             });
+
+            if (!fullResponse) {
+                 throw new Error("Received empty response from AI");
+            }
 
             this._history.push({ role: 'assistant', text: fullResponse });
             this._contextManager.addConversationTurn('assistant', fullResponse);

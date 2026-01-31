@@ -151,6 +151,9 @@ export interface TaskNode {
     reasoning?: string; // Why this task is needed
     successCriteria?: string[]; // What defines success for this task
     persona?: string;
+    output?: any; // Task execution result/output
+    retryCount?: number; // Number of retry attempts for failed tasks
+    createdAt?: number; // Timestamp when task was created
 }
 
 export interface CodePlan {

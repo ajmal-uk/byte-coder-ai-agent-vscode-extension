@@ -29,10 +29,12 @@ export { ExecutorAgent, ExecutorInput, ExecutorOutput } from './ExecutorAgent';
 // ===== COMPLEX TASK HANDLING LAYER =====
 export { ComplexTaskHandler, ComplexTaskInput, ComplexTaskResult, ComplexTaskDefinition, TaskPhase } from './ComplexTaskHandler';
 
+// ===== VERSION CONTROL LAYER =====
+export { EnhancedVersionController, VersionControlInput, VersionControlResult, CommitInfo, GitStatus, ConflictInfo, MergeResult, CheckpointComparison } from './EnhancedVersionController';
+export { RealTimeVersionTracker, VersionState, FileVersion, VersionChange } from './RealTimeVersionTracker';
+export { VersionTrackerUI } from './VersionTrackerUI';
+
 // ===== SAFETY LAYER =====
-export { VersionControllerAgent, VersionControllerInput, VersionControllerResult } from './VersionControllerAgent';
-export { DocWriterAgent, DocWriterInput, DocWriterResult } from './DocWriterAgent';
-export { QualityAssuranceAgent } from './QualityAssuranceAgent';
 
 // ===== MEMORY LAYER =====
 export { LongTermMemory, MemoryEntry, MemorySearchResult } from './LongTermMemory';
