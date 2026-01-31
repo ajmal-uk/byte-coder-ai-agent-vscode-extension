@@ -24,57 +24,38 @@
 ## 📸 Experience Byte Coder
 
 <div align="center">
-  <i>Click any image to view in full resolution (Overlay Mode)</i>
-</div>
-<br/>
-
-<table border="0" width="100%">
-  <tr>
-    <td width="50%" align="center" valign="middle">
-      <a href="images/screenshots/chat.png">
-        <img src="images/screenshots/chat.png" alt="Byte Coder Chat Interface" width="400" />
-      </a>
-      <br/>
-      <sub><b>Intelligent Chat Interface</b><br/>Context-aware conversations with your codebase</sub>
-    </td>
-    <td width="50%" align="center" valign="middle">
-      <table border="0">
-        <tr>
-          <td align="center">
-            <a href="images/screenshots/history.png">
-              <img src="images/screenshots/history.png" alt="Session History" width="200" />
-            </a>
-            <br/><sub><b>Session History</b></sub>
-          </td>
-        </tr>
-        <tr>
-          <td align="center">
-            <br/>
-            <a href="images/screenshots/models.png">
-              <img src="images/screenshots/models.png" alt="Model Selection" width="200" />
-            </a>
-            <br/><sub><b>Model Management</b></sub>
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-</table>
-
-<br/>
-
-<div align="center">
   <table border="0">
     <tr>
       <td align="center">
-        <a href="images/screenshots/settings.png">
-          <img src="images/screenshots/settings.png" alt="Settings Interface" width="500" />
+        <a href="images/screenshots/chat.png">
+          <img src="images/screenshots/chat.png" alt="Chat" width="160" />
         </a>
-        <br/>
-        <sub><b>Comprehensive Configuration</b></sub>
+        <br/><sub><b>Chat</b></sub>
+      </td>
+      <td align="center">
+        <a href="images/screenshots/history.png">
+          <img src="images/screenshots/history.png" alt="History" width="160" />
+        </a>
+        <br/><sub><b>History</b></sub>
+      </td>
+    </tr>
+    <tr>
+      <td align="center">
+        <a href="images/screenshots/models.png">
+          <img src="images/screenshots/models.png" alt="Models" width="160" />
+        </a>
+        <br/><sub><b>Models</b></sub>
+      </td>
+      <td align="center">
+        <a href="images/screenshots/settings.png">
+          <img src="images/screenshots/settings.png" alt="Settings" width="160" />
+        </a>
+        <br/><sub><b>Settings</b></sub>
       </td>
     </tr>
   </table>
+  <br/>
+  <i>Click any image to view in full resolution (Overlay Mode)</i>
 </div>
 
 ---
