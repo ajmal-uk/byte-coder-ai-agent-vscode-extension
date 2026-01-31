@@ -24,31 +24,29 @@
 ## 📸 Experience Byte Coder
 
 <div align="center">
-  <table border="0">
+  <table border="0" width="100%">
     <tr>
-      <td align="center">
+      <td width="25%" align="center">
         <a href="images/screenshots/chat.png">
-          <img src="images/screenshots/chat.png" alt="Chat" width="160" />
+          <img src="images/screenshots/chat.png" alt="Chat" height="200" />
         </a>
         <br/><sub><b>Chat</b></sub>
       </td>
-      <td align="center">
+      <td width="25%" align="center">
         <a href="images/screenshots/history.png">
-          <img src="images/screenshots/history.png" alt="History" width="160" />
+          <img src="images/screenshots/history.png" alt="History" height="200" />
         </a>
         <br/><sub><b>History</b></sub>
       </td>
-    </tr>
-    <tr>
-      <td align="center">
+      <td width="25%" align="center">
         <a href="images/screenshots/models.png">
-          <img src="images/screenshots/models.png" alt="Models" width="160" />
+          <img src="images/screenshots/models.png" alt="Models" height="200" />
         </a>
         <br/><sub><b>Models</b></sub>
       </td>
-      <td align="center">
+      <td width="25%" align="center">
         <a href="images/screenshots/settings.png">
-          <img src="images/screenshots/settings.png" alt="Settings" width="160" />
+          <img src="images/screenshots/settings.png" alt="Settings" height="200" />
         </a>
         <br/><sub><b>Settings</b></sub>
       </td>
